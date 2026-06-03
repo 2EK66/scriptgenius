@@ -53,8 +53,7 @@ const SeriesCreate = () => {
           title: title.trim(),
           description: description.trim() || null,
           genre: genre || null,
-          art_style: artStyle || null,
-          is_published: true, // Publier automatiquement la série
+          is_public: true,
         })
         .select()
         .single();

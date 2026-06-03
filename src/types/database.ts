@@ -28,7 +28,6 @@ export interface Script {
   allow_social_sharing: boolean;
   view_count: number;
   likes_count: number;
-  is_original?: boolean;
   created_at: string;
   updated_at: string;
 }
