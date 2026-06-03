@@ -14,6 +14,173 @@ export type Database = {
   }
   public: {
     Tables: {
+      comics: {
+        Row: {
+          art_style: string | null
+          cover_image_url: string | null
+          created_at: string | null
+          description: string | null
+          id: string
+          is_public: boolean | null
+          likes_count: number | null
+          script_id: string | null
+          status: string | null
+          title: string
+          updated_at: string | null
+          user_id: string | null
+          view_count: number | null
+        }
+        Insert: {
+          art_style?: string | null
+          cover_image_url?: string | null
+          created_at?: string | null
+          description?: string | null
+          id?: string
+          is_public?: boolean | null
+          likes_count?: number | null
+          script_id?: string | null
+          status?: string | null
+          title: string
+          updated_at?: string | null
+          user_id?: string | null
+          view_count?: number | null
+        }
+        Update: {
+          art_style?: string | null
+          cover_image_url?: string | null
+          created_at?: string | null
+          description?: string | null
+          id?: string
+          is_public?: boolean | null
+          likes_count?: number | null
+          script_id?: string | null
+          status?: string | null
+          title?: string
+          updated_at?: string | null
+          user_id?: string | null
+          view_count?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "comics_script_id_fkey"
+            columns: ["script_id"]
+            isOneToOne: false
+            referencedRelation: "public_scripts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "comics_script_id_fkey"
+            columns: ["script_id"]
+            isOneToOne: false
+            referencedRelation: "scripts"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      credit_packages: {
+        Row: {
+          created_at: string
+          credits: number
+          currency: string
+          description: string | null
+          id: string
+          is_active: boolean | null
+          name: string
+          price_cents: number
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          credits: number
+          currency?: string
+          description?: string | null
+          id?: string
+          is_active?: boolean | null
+          name: string
+          price_cents: number
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          credits?: number
+          currency?: string
+          description?: string | null
+          id?: string
+          is_active?: boolean | null
+          name?: string
+          price_cents?: number
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      credit_transactions: {
+        Row: {
+          created_at: string
+          credits: number
+          description: string | null
+          id: string
+          payment_transaction_id: string | null
+          type: string
+          user_id: string | null
+        }
+        Insert: {
+          created_at?: string
+          credits: number
+          description?: string | null
+          id?: string
+          payment_transaction_id?: string | null
+          type: string
+          user_id?: string | null
+        }
+        Update: {
+          created_at?: string
+          credits?: number
+          description?: string | null
+          id?: string
+          payment_transaction_id?: string | null
+          type?: string
+          user_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "credit_transactions_payment_transaction_id_fkey"
+            columns: ["payment_transaction_id"]
+            isOneToOne: false
+            referencedRelation: "payment_transactions"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      image_generations: {
+        Row: {
+          created_at: string
+          credits_used: number | null
+          id: string
+          image_url: string
+          model: string
+          prompt: string
+          user_id: string | null
+        }
+        Insert: {
+          created_at?: string
+          credits_used?: number | null
+          id?: string
+          image_url: string
+          model: string
+          prompt: string
+          user_id?: string | null
+        }
+        Update: {
+          created_at?: string
+          credits_used?: number | null
+          id?: string
+          image_url?: string
+          model?: string
+          prompt?: string
+          user_id?: string | null
+        }
+        Relationships: []
+      }
       payment_transactions: {
         Row: {
           amount: number
@@ -59,10 +226,55 @@ export type Database = {
         }
         Relationships: []
       }
+      premium_slots: {
+        Row: {
+          created_at: string | null
+          expires_at: string
+          id: string
+          is_active: boolean | null
+          is_used: boolean | null
+          price_paid: number
+          purchased_at: string | null
+          slot_type: string
+          updated_at: string | null
+          used_for_id: string | null
+          user_id: string | null
+        }
+        Insert: {
+          created_at?: string | null
+          expires_at: string
+          id?: string
+          is_active?: boolean | null
+          is_used?: boolean | null
+          price_paid: number
+          purchased_at?: string | null
+          slot_type?: string
+          updated_at?: string | null
+          used_for_id?: string | null
+          user_id?: string | null
+        }
+        Update: {
+          created_at?: string | null
+          expires_at?: string
+          id?: string
+          is_active?: boolean | null
+          is_used?: boolean | null
+          price_paid?: number
+          purchased_at?: string | null
+          slot_type?: string
+          updated_at?: string | null
+          used_for_id?: string | null
+          user_id?: string | null
+        }
+        Relationships: []
+      }
       profiles: {
         Row: {
           avatar_url: string | null
           created_at: string | null
+          credits_purchased_total: number | null
+          credits_remaining: number | null
+          credits_used_total: number | null
           email: string | null
           full_name: string | null
           id: string
@@ -76,6 +288,9 @@ export type Database = {
         Insert: {
           avatar_url?: string | null
           created_at?: string | null
+          credits_purchased_total?: number | null
+          credits_remaining?: number | null
+          credits_used_total?: number | null
           email?: string | null
           full_name?: string | null
           id: string
@@ -89,6 +304,9 @@ export type Database = {
         Update: {
           avatar_url?: string | null
           created_at?: string | null
+          credits_purchased_total?: number | null
+          credits_remaining?: number | null
+          credits_used_total?: number | null
           email?: string | null
           full_name?: string | null
           id?: string
@@ -101,57 +319,172 @@ export type Database = {
         }
         Relationships: []
       }
+      script_likes: {
+        Row: {
+          created_at: string | null
+          id: string
+          script_id: string | null
+          user_id: string | null
+        }
+        Insert: {
+          created_at?: string | null
+          id?: string
+          script_id?: string | null
+          user_id?: string | null
+        }
+        Update: {
+          created_at?: string | null
+          id?: string
+          script_id?: string | null
+          user_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "script_likes_script_id_fkey"
+            columns: ["script_id"]
+            isOneToOne: false
+            referencedRelation: "public_scripts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "script_likes_script_id_fkey"
+            columns: ["script_id"]
+            isOneToOne: false
+            referencedRelation: "scripts"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       scripts: {
         Row: {
           age_range: string
+          allow_social_sharing: boolean | null
           content: string
           created_at: string | null
           custom_idea: string | null
           genre: string
           id: string
+          is_public: boolean | null
+          likes_count: number | null
           status: string | null
           theme: string
           title: string
           updated_at: string | null
           user_id: string | null
+          view_count: number | null
           word_count: number | null
         }
         Insert: {
           age_range: string
+          allow_social_sharing?: boolean | null
           content: string
           created_at?: string | null
           custom_idea?: string | null
           genre: string
           id?: string
+          is_public?: boolean | null
+          likes_count?: number | null
           status?: string | null
           theme: string
           title: string
           updated_at?: string | null
           user_id?: string | null
+          view_count?: number | null
           word_count?: number | null
         }
         Update: {
           age_range?: string
+          allow_social_sharing?: boolean | null
           content?: string
           created_at?: string | null
           custom_idea?: string | null
           genre?: string
           id?: string
+          is_public?: boolean | null
+          likes_count?: number | null
           status?: string | null
           theme?: string
           title?: string
           updated_at?: string | null
           user_id?: string | null
+          view_count?: number | null
           word_count?: number | null
+        }
+        Relationships: []
+      }
+      series: {
+        Row: {
+          cover_image_url: string | null
+          created_at: string | null
+          description: string | null
+          genre: string | null
+          id: string
+          is_public: boolean | null
+          likes_count: number | null
+          title: string
+          updated_at: string | null
+          user_id: string | null
+          view_count: number | null
+        }
+        Insert: {
+          cover_image_url?: string | null
+          created_at?: string | null
+          description?: string | null
+          genre?: string | null
+          id?: string
+          is_public?: boolean | null
+          likes_count?: number | null
+          title: string
+          updated_at?: string | null
+          user_id?: string | null
+          view_count?: number | null
+        }
+        Update: {
+          cover_image_url?: string | null
+          created_at?: string | null
+          description?: string | null
+          genre?: string | null
+          id?: string
+          is_public?: boolean | null
+          likes_count?: number | null
+          title?: string
+          updated_at?: string | null
+          user_id?: string | null
+          view_count?: number | null
         }
         Relationships: []
       }
     }
     Views: {
-      [_ in never]: never
+      public_scripts: {
+        Row: {
+          age_range: string | null
+          allow_social_sharing: boolean | null
+          author_avatar: string | null
+          author_name: string | null
+          content: string | null
+          created_at: string | null
+          custom_idea: string | null
+          genre: string | null
+          id: string | null
+          is_public: boolean | null
+          likes_count: number | null
+          status: string | null
+          theme: string | null
+          title: string | null
+          updated_at: string | null
+          user_id: string | null
+          view_count: number | null
+          word_count: number | null
+        }
+        Relationships: []
+      }
     }
     Functions: {
-      [_ in never]: never
+      use_premium_slot: {
+        Args: { p_slot_id: string; p_used_for_id: string }
+        Returns: undefined
+      }
     }
     Enums: {
       [_ in never]: never
