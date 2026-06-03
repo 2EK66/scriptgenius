@@ -14,7 +14,93 @@ export type Database = {
   }
   public: {
     Tables: {
-      [_ in never]: never
+      profiles: {
+        Row: {
+          avatar_url: string | null
+          created_at: string | null
+          email: string | null
+          full_name: string | null
+          id: string
+          last_generation_date: string | null
+          scripts_generated_today: number | null
+          scripts_generated_total: number | null
+          subscription_expires_at: string | null
+          subscription_type: string | null
+          updated_at: string | null
+        }
+        Insert: {
+          avatar_url?: string | null
+          created_at?: string | null
+          email?: string | null
+          full_name?: string | null
+          id: string
+          last_generation_date?: string | null
+          scripts_generated_today?: number | null
+          scripts_generated_total?: number | null
+          subscription_expires_at?: string | null
+          subscription_type?: string | null
+          updated_at?: string | null
+        }
+        Update: {
+          avatar_url?: string | null
+          created_at?: string | null
+          email?: string | null
+          full_name?: string | null
+          id?: string
+          last_generation_date?: string | null
+          scripts_generated_today?: number | null
+          scripts_generated_total?: number | null
+          subscription_expires_at?: string | null
+          subscription_type?: string | null
+          updated_at?: string | null
+        }
+        Relationships: []
+      }
+      scripts: {
+        Row: {
+          age_range: string
+          content: string
+          created_at: string | null
+          custom_idea: string | null
+          genre: string
+          id: string
+          status: string | null
+          theme: string
+          title: string
+          updated_at: string | null
+          user_id: string | null
+          word_count: number | null
+        }
+        Insert: {
+          age_range: string
+          content: string
+          created_at?: string | null
+          custom_idea?: string | null
+          genre: string
+          id?: string
+          status?: string | null
+          theme: string
+          title: string
+          updated_at?: string | null
+          user_id?: string | null
+          word_count?: number | null
+        }
+        Update: {
+          age_range?: string
+          content?: string
+          created_at?: string | null
+          custom_idea?: string | null
+          genre?: string
+          id?: string
+          status?: string | null
+          theme?: string
+          title?: string
+          updated_at?: string | null
+          user_id?: string | null
+          word_count?: number | null
+        }
+        Relationships: []
+      }
     }
     Views: {
       [_ in never]: never
