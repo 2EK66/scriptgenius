@@ -364,6 +364,7 @@ export type Database = {
           custom_idea: string | null
           genre: string
           id: string
+          is_original: boolean | null
           is_public: boolean | null
           likes_count: number | null
           status: string | null
@@ -382,6 +383,7 @@ export type Database = {
           custom_idea?: string | null
           genre: string
           id?: string
+          is_original?: boolean | null
           is_public?: boolean | null
           likes_count?: number | null
           status?: string | null
@@ -400,6 +402,7 @@ export type Database = {
           custom_idea?: string | null
           genre?: string
           id?: string
+          is_original?: boolean | null
           is_public?: boolean | null
           likes_count?: number | null
           status?: string | null
