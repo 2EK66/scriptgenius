@@ -1,0 +1,130 @@
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* ScriptGenius design system colors and styles */
+
+@layer base {
+  :root {
+    --background: 210 20% 98%;
+    --foreground: 217 32% 17%;
+
+    --card: 210 15% 97%;
+    --card-foreground: 217 32% 17%;
+
+    --popover: 210 15% 97%;
+    --popover-foreground: 217 32% 17%;
+
+    --primary: 235 56% 67%;
+    --primary-foreground: 210 20% 98%;
+
+    --secondary: 210 30% 94%;
+    --secondary-foreground: 217 32% 17%;
+
+    --muted: 210 30% 94%;
+    --muted-foreground: 215 16% 47%;
+
+    --accent: 142 76% 36%;
+    --accent-foreground: 210 20% 98%;
+
+    --destructive: 0 84% 60%;
+    --destructive-foreground: 210 20% 98%;
+
+    --border: 214 32% 88%;
+    --input: 214 32% 88%;
+    --ring: 235 56% 67%;
+
+    --radius: 0.75rem;
+
+    --sidebar-background: 210 15% 97%;
+    --sidebar-foreground: 217 32% 17%;
+    --sidebar-primary: 235 56% 67%;
+    --sidebar-primary-foreground: 210 20% 98%;
+    --sidebar-accent: 210 30% 94%;
+    --sidebar-accent-foreground: 217 32% 17%;
+    --sidebar-border: 214 32% 88%;
+    --sidebar-ring: 235 56% 67%;
+  }
+
+  .dark {
+    --background: 217 32% 17%;
+    --foreground: 210 20% 98%;
+
+    --card: 217 32% 25%;
+    --card-foreground: 210 20% 98%;
+
+    --popover: 217 32% 25%;
+    --popover-foreground: 210 20% 98%;
+
+    --primary: 235 56% 67%;
+    --primary-foreground: 217 32% 17%;
+
+    --secondary: 215 25% 27%;
+    --secondary-foreground: 210 20% 98%;
+
+    --muted: 215 25% 27%;
+    --muted-foreground: 217 9% 61%;
+
+    --accent: 142 76% 36%;
+    --accent-foreground: 210 20% 98%;
+
+    --destructive: 0 84% 60%;
+    --destructive-foreground: 210 20% 98%;
+
+    --border: 215 25% 27%;
+    --input: 215 25% 27%;
+    --ring: 235 56% 67%;
+
+    --sidebar-background: 217 32% 17%;
+    --sidebar-foreground: 210 20% 98%;
+    --sidebar-primary: 235 56% 67%;
+    --sidebar-primary-foreground: 217 32% 17%;
+    --sidebar-accent: 215 25% 27%;
+    --sidebar-accent-foreground: 210 20% 98%;
+    --sidebar-border: 215 25% 27%;
+    --sidebar-ring: 235 56% 67%;
+  }
+}
+
+@layer base {
+  * {
+    @apply border-border;
+  }
+
+  body {
+    @apply bg-background text-foreground;
+    font-family: 'Inter', system-ui, -apple-system, sans-serif;
+  }
+}
+
+@layer components {
+  .gradient-text {
+    @apply bg-gradient-to-r from-script-primary to-script-secondary bg-clip-text text-transparent;
+  }
+  
+  .glass-card {
+    @apply backdrop-blur-lg bg-primary/5 border border-primary/10;
+  }
+  
+  .premium-glow {
+    box-shadow: 0 0 30px hsl(142 76% 36% / 0.3);
+  }
+}
+
+/* Custom scrollbar */
+::-webkit-scrollbar {
+  width: 8px;
+}
+
+::-webkit-scrollbar-track {
+  @apply bg-muted;
+}
+
+::-webkit-scrollbar-thumb {
+  @apply bg-primary rounded-full;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  @apply bg-primary/80;
+}

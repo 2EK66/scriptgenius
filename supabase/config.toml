@@ -1,0 +1,22 @@
+project_id = "qfinfdkclmbcrveilfzs"
+
+[functions.generate-script]
+verify_jwt = true
+
+[functions.generate-comic-image]
+verify_jwt = true
+
+[functions.cinetpay-checkout]
+verify_jwt = false
+
+[functions.cinetpay-purchase]
+verify_jwt = false
+
+[functions.cinetpay-webhook]
+verify_jwt = false
+
+[functions.cinetpay-webhook-purchase]
+verify_jwt = false
+
+[functions.comic-script-analyzer]
+verify_jwt = true
