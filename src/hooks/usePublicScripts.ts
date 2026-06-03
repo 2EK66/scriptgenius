@@ -18,7 +18,7 @@ export const usePublicScripts = () => {
       const { data, error } = await supabase
         .from('series')
         .select('*')
-        .eq('is_published', true)
+        .eq('is_public', true)
         .order('created_at', { ascending: false });
 
       if (error) throw error;
@@ -30,7 +30,7 @@ export const usePublicScripts = () => {
         content: series.description || '',
         genre: series.genre || '',
         age_range: 'all',
-        theme: series.art_style || '',
+        theme: series.genre || '',
         view_count: series.view_count || 0,
         likes_count: series.likes_count || 0,
         created_at: series.created_at,

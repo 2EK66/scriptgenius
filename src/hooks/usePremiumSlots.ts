@@ -121,13 +121,12 @@ export const usePremiumSlots = () => {
     return data;
   };
 
-  const useSlot = async (slotType: 'script' | 'comic', itemId: string) => {
+  const useSlot = async (slotId: string, itemId: string) => {
     if (!user) throw new Error('User not authenticated');
 
     const { data, error } = await supabase.rpc('use_premium_slot', {
-      p_user_id: user.id,
-      p_slot_type: slotType,
-      p_item_id: itemId
+      p_slot_id: slotId,
+      p_used_for_id: itemId
     });
 
     if (error) throw error;

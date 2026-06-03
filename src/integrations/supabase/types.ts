@@ -414,6 +414,7 @@ export type Database = {
       }
       series: {
         Row: {
+          art_style: string | null
           cover_image_url: string | null
           created_at: string | null
           description: string | null
@@ -427,6 +428,7 @@ export type Database = {
           view_count: number | null
         }
         Insert: {
+          art_style?: string | null
           cover_image_url?: string | null
           created_at?: string | null
           description?: string | null
@@ -440,6 +442,7 @@ export type Database = {
           view_count?: number | null
         }
         Update: {
+          art_style?: string | null
           cover_image_url?: string | null
           created_at?: string | null
           description?: string | null
