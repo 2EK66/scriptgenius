@@ -54,7 +54,6 @@ export const ComicPublishDialog = ({ comic, onPublished }: ComicPublishDialogPro
           user_id: user.id,
           title: title.trim(),
           description: description.trim() || null,
-          genre: genre.trim() || null,
           art_style: comic.artStyle || null,
           is_public: isPublic,
           status: 'published'
