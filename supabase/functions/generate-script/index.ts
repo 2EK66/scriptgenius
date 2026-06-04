@@ -1,7 +1,5 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts"
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
-import { generateText } from "npm:ai@4";
-import { createLovableAiGatewayProvider } from "../_shared/ai-gateway.ts";
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -86,11 +84,11 @@ serve(async (req) => {
       )
     }
 
-    const lovableApiKey = Deno.env.get('LOVABLE_API_KEY')
-    if (!lovableApiKey) {
-      console.error('Missing LOVABLE_API_KEY')
+    const geminiApiKey = Deno.env.get('GEMINI_API_KEY')
+    if (!geminiApiKey) {
+      console.error('Missing GEMINI_API_KEY')
       return new Response(
-        JSON.stringify({ error: 'Configuration requise : Clé API Lovable manquante.' }),
+        JSON.stringify({ error: 'Configuration requise : Clé API Gemini manquante.' }),
         { status: 503, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       )
     }
@@ -116,16 +114,38 @@ FADE IN:
 [Contenu de l'histoire découpée en scènes]
 FADE OUT.`
 
-    const gateway = createLovableAiGatewayProvider(lovableApiKey);
-    const model = gateway("google/gemini-3-flash-preview");
+    const systemPrompt = "Tu es ScriptGenius, un assistant IA spécialisé dans la création de scénarios professionnels. Réponds uniquement en français."
 
-    const result = await generateText({
-      model,
-      system: "Tu es ScriptGenius, un assistant IA spécialisé dans la création de scénarios professionnels. Réponds uniquement en français.",
-      prompt,
-    });
+    const geminiResp = await fetch(
+      `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${geminiApiKey}`,
+      {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          systemInstruction: { parts: [{ text: systemPrompt }] },
+          contents: [{ role: 'user', parts: [{ text: prompt }] }],
+        }),
+      }
+    )
 
-    const generatedContent = result.text || ''
+    if (!geminiResp.ok) {
+      const errText = await geminiResp.text()
+      console.error('Gemini API error:', geminiResp.status, errText)
+      return new Response(
+        JSON.stringify({ error: `Erreur Gemini: ${geminiResp.status}`, details: errText }),
+        { status: 502, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      )
+    }
+
+    const geminiData = await geminiResp.json()
+    const generatedContent = geminiData?.candidates?.[0]?.content?.parts?.map((p: any) => p.text).join('') || ''
+
+    if (!generatedContent) {
+      return new Response(
+        JSON.stringify({ error: 'Réponse Gemini vide' }),
+        { status: 502, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      )
+    }
 
     const titleMatch = generatedContent.match(/TITRE:\s*(.+)/i)
     const title = titleMatch ? titleMatch[1].trim() : `Scénario ${genre}`
