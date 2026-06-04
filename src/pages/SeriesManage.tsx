@@ -34,10 +34,16 @@ const SeriesManage = () => {
           
         if (seriesError) throw seriesError;
         setSeries(seriesData);
-        
-        // For now, episodes are empty since we don't have an episodes table yet
-        setEpisodes([]);
-        
+
+        const { data: episodesData, error: episodesError } = await supabase
+          .from('episodes' as any)
+          .select('*')
+          .eq('series_id', seriesId)
+          .order('episode_number', { ascending: true });
+
+        if (episodesError) throw episodesError;
+        setEpisodes(episodesData || []);
+
       } catch (error) {
         console.error('Error loading series data:', error);
         // Fallback to empty state if series not found
@@ -56,14 +62,26 @@ const SeriesManage = () => {
     window.location.href = `/comic-generator?seriesId=${seriesId}`;
   };
 
-  const handlePublishEpisode = (episodeId: string) => {
-    // Toggle episode publication status
-    setEpisodes(prev => prev.map(ep => 
-      ep.id === episodeId 
-        ? { ...ep, status: ep.status === 'published' ? 'draft' : 'published' }
-        : ep
+  const handlePublishEpisode = async (episodeId: string) => {
+    const ep = episodes.find(e => e.id === episodeId);
+    if (!ep) return;
+    const newStatus = ep.status === 'published' ? 'draft' : 'published';
+    const { error } = await supabase
+      .from('episodes' as any)
+      .update({
+        status: newStatus,
+        published_at: newStatus === 'published' ? new Date().toISOString() : null,
+      })
+      .eq('id', episodeId);
+
+    if (error) {
+      toast({ title: "Erreur", description: error.message, variant: "destructive" });
+      return;
+    }
+
+    setEpisodes(prev => prev.map(e =>
+      e.id === episodeId ? { ...e, status: newStatus } : e
     ));
-    
     toast({
       title: "Statut mis à jour",
       description: "Le statut de l'épisode a été modifié.",
