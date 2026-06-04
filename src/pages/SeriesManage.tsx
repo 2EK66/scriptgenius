@@ -18,7 +18,7 @@ const SeriesManage = () => {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    if (!seriesId) return;
+    if (!seriesId || !user?.id) return;
     
     const loadSeriesData = async () => {
       try {
@@ -30,7 +30,7 @@ const SeriesManage = () => {
           .select('*')
           .eq('id', seriesId)
           .eq('user_id', user?.id)
-          .single();
+          .maybeSingle();
           
         if (seriesError) throw seriesError;
         setSeries(seriesData);
@@ -52,11 +52,8 @@ const SeriesManage = () => {
   }, [seriesId, user?.id]);
 
   const handleCreateEpisode = () => {
-    // Navigate to episode creation
-    toast({
-      title: "Création d'épisode",
-      description: "Redirection vers le générateur d'épisode...",
-    });
+    // Redirect to the comic generator, pre-filling the series context
+    window.location.href = `/comic-generator?seriesId=${seriesId}`;
   };
 
   const handlePublishEpisode = (episodeId: string) => {
