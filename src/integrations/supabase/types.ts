@@ -151,6 +151,62 @@ export type Database = {
           },
         ]
       }
+      episodes: {
+        Row: {
+          comic_panels: Json | null
+          created_at: string
+          duration: number | null
+          episode_number: number
+          id: string
+          like_count: number
+          published_at: string | null
+          script_content: string | null
+          series_id: string
+          status: string
+          title: string | null
+          updated_at: string
+          view_count: number
+        }
+        Insert: {
+          comic_panels?: Json | null
+          created_at?: string
+          duration?: number | null
+          episode_number: number
+          id?: string
+          like_count?: number
+          published_at?: string | null
+          script_content?: string | null
+          series_id: string
+          status?: string
+          title?: string | null
+          updated_at?: string
+          view_count?: number
+        }
+        Update: {
+          comic_panels?: Json | null
+          created_at?: string
+          duration?: number | null
+          episode_number?: number
+          id?: string
+          like_count?: number
+          published_at?: string | null
+          script_content?: string | null
+          series_id?: string
+          status?: string
+          title?: string | null
+          updated_at?: string
+          view_count?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "episodes_series_id_fkey"
+            columns: ["series_id"]
+            isOneToOne: false
+            referencedRelation: "series"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       image_generations: {
         Row: {
           created_at: string
