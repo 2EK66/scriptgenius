@@ -6,7 +6,7 @@ import {
   DropdownMenuItem, 
   DropdownMenuTrigger 
 } from "@/components/ui/dropdown-menu";
-import { Film, User, Crown, LogOut, Palette, Trophy, Menu, Info, Star, Zap, DollarSign, ShoppingBag } from "lucide-react";
+import { Film, User, Crown, LogOut, Palette, Trophy, Menu, Info, Star, Zap, DollarSign, ShoppingBag, Briefcase } from "lucide-react";
 import { Link } from "react-router-dom";
 import { useAuth } from "@/contexts/AuthContext";
 import AuthModal from "./AuthModal";
@@ -44,6 +44,12 @@ const Header = () => {
           <Link to="/gallery" className="text-slate-600 hover:text-script-primary transition-colors">
             Galerie
           </Link>
+          {user && (
+            <Link to="/workplace" className="text-slate-600 hover:text-script-primary transition-colors flex items-center">
+              <Briefcase className="h-4 w-4 mr-1" />
+              Mon Espace
+            </Link>
+          )}
           <Link to="/rewards" className="text-slate-600 hover:text-script-primary transition-colors flex items-center">
             <Trophy className="h-4 w-4 mr-1" />
             Récompenses
@@ -64,6 +70,14 @@ const Header = () => {
               </Button>
             </DropdownMenuTrigger>
             <DropdownMenuContent className="w-56 bg-white/95 backdrop-blur-sm border border-white/20">
+              {user && (
+                <DropdownMenuItem asChild>
+                  <Link to="/workplace" className="flex items-center">
+                    <Briefcase className="h-4 w-4 mr-2" />
+                    Mon Espace
+                  </Link>
+                </DropdownMenuItem>
+              )}
               <DropdownMenuItem asChild>
                 <Link to="/comic-generator" className="flex items-center">
                   <Palette className="h-4 w-4 mr-2" />

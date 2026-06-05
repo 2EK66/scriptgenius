@@ -16,6 +16,7 @@ import PaymentSuccess from "./pages/PaymentSuccess";
 import AuthorDashboard from "./pages/AuthorDashboard";
 import PremiumStore from "./pages/PremiumStore";
 import SecurityDemo from "./pages/SecurityDemo";
+import Workplace from "./pages/Workplace";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -37,6 +38,7 @@ const App = () => (
             <Route path="/rewards" element={<Rewards />} />
             <Route path="/author-dashboard" element={<AuthorDashboard />} />
             <Route path="/premium-store" element={<PremiumStore />} />
+            <Route path="/workplace" element={<Workplace />} />
             <Route path="/payment-success" element={<PaymentSuccess />} />
             <Route path="/security-demo" element={<SecurityDemo />} />
             {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
