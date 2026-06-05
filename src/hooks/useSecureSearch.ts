@@ -1,4 +1,4 @@
-import { useState, useCallback, useMemo } from 'react';
+import { useState, useCallback, useMemo, useRef } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
 
 interface SearchSecurityConfig {
@@ -38,7 +38,7 @@ const DEFAULT_CONFIG: SearchSecurityConfig = {
 
 export const useSecureSearch = (config: Partial<SearchSecurityConfig> = {}) => {
   const { user } = useAuth();
-  const [lastSearchTime, setLastSearchTime] = useState(0);
+  const lastSearchTimeRef = useRef(0);
   const [searchLogs, setSearchLogs] = useState<SearchLog[]>([]);
   
   const securityConfig = useMemo(() => ({
@@ -74,15 +74,15 @@ export const useSecureSearch = (config: Partial<SearchSecurityConfig> = {}) => {
   // Rate limiting
   const isRateLimited = useCallback((): boolean => {
     const now = Date.now();
-    const timeSinceLastSearch = now - lastSearchTime;
-    
+    const timeSinceLastSearch = now - lastSearchTimeRef.current;
+
     if (timeSinceLastSearch < securityConfig.rateLimitMs) {
       return true;
     }
-    
-    setLastSearchTime(now);
+
+    lastSearchTimeRef.current = now;
     return false;
-  }, [lastSearchTime, securityConfig.rateLimitMs]);
+  }, [securityConfig.rateLimitMs]);
 
   // Logger sécurisé
   const logSearch = useCallback((
