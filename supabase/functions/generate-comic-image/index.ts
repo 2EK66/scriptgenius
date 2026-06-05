@@ -1,10 +1,9 @@
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
-import { HfInference } from 'https://esm.sh/@huggingface/inference@2.3.2';
 import { corsHeaders } from '../_shared/cors.ts';
 
 const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
 const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
-const huggingFaceToken = Deno.env.get('HUGGING_FACE_ACCESS_TOKEN');
+const lovableApiKey = Deno.env.get('LOVABLE_API_KEY');
 
 interface GenerateImageRequest {
   positivePrompt: string;
@@ -38,8 +37,8 @@ Deno.serve(async (req) => {
       });
     }
 
-    if (!huggingFaceToken) {
-      return new Response(JSON.stringify({ error: 'Hugging Face token not configured' }), {
+    if (!lovableApiKey) {
+      return new Response(JSON.stringify({ error: 'LOVABLE_API_KEY not configured' }), {
         status: 500,
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       });
@@ -47,38 +46,43 @@ Deno.serve(async (req) => {
 
     const params: GenerateImageRequest = await req.json();
 
-    // 🌟 ASTUCE : On injecte automatiquement des mots-clés de BD pour forcer le style
     const comicPrompt = `comic book style, panel, graphic novel illustration, digital artwork, ${params.positivePrompt}`;
 
-    console.log('Generating comic image with Hugging Face:', comicPrompt);
+    console.log('Generating comic image with Lovable AI Gateway');
 
-    // Initialize Hugging Face client
-    const hf = new HfInference(huggingFaceToken);
-
-    // 🚀 Utilisation d'Animagine XL (Gratuit via l'API Inference de Hugging Face)
-    const image = await hf.textToImage({
-      inputs: comicPrompt,
-      model: 'cagliostrolab/animagine-xl-3.1', // Modèle BD / Illustration magnifique
+    const aiRes = await fetch('https://ai.gateway.lovable.dev/v1/images/generations', {
+      method: 'POST',
+      headers: {
+        Authorization: `Bearer ${lovableApiKey}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        model: 'google/gemini-2.5-flash-image',
+        messages: [{ role: 'user', content: comicPrompt }],
+        modalities: ['image', 'text'],
+      }),
     });
 
-    if (!image) {
-      return new Response(JSON.stringify({ error: 'Image generation failed' }), {
+    if (!aiRes.ok) {
+      const errText = await aiRes.text();
+      console.error('AI Gateway error:', aiRes.status, errText);
+      return new Response(JSON.stringify({ error: `AI Gateway: ${aiRes.status} ${errText}` }), {
         status: 500,
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       });
     }
 
-    // Convert the blob to a base64 string
-    const arrayBuffer = await image.arrayBuffer();
-    const bytes = new Uint8Array(arrayBuffer);
-    let binary = '';
-    for (let i = 0; i < bytes.byteLength; i++) {
-      binary += String.fromCharCode(bytes[i]);
+    const aiData = await aiRes.json();
+    const b64 = aiData?.data?.[0]?.b64_json;
+    if (!b64) {
+      console.error('No image in response:', JSON.stringify(aiData).slice(0, 500));
+      return new Response(JSON.stringify({ error: 'No image returned' }), {
+        status: 500,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      });
     }
-    const base64 = btoa(binary);
-    const imageUrl = `data:image/png;base64,${base64}`;
-    
-    console.log('Hugging Face comic image generated successfully');
+    const imageUrl = `data:image/png;base64,${b64}`;
+    console.log('Comic image generated successfully');
 
     return new Response(
       JSON.stringify({

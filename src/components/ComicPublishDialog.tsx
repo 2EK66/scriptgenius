@@ -9,6 +9,7 @@ import { useAuth } from "@/contexts/AuthContext";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { Upload } from "lucide-react";
+import { useSearchParams } from "react-router-dom";
 
 interface ComicPublishDialogProps {
   comic: {
@@ -26,6 +27,8 @@ interface ComicPublishDialogProps {
 
 export const ComicPublishDialog = ({ comic, onPublished }: ComicPublishDialogProps) => {
   const { user } = useAuth();
+  const [searchParams] = useSearchParams();
+  const seriesId = searchParams.get("seriesId");
   const [open, setOpen] = useState(false);
   const [loading, setLoading] = useState(false);
   const [title, setTitle] = useState(comic.title);
@@ -48,22 +51,45 @@ export const ComicPublishDialog = ({ comic, onPublished }: ComicPublishDialogPro
     setLoading(true);
 
     try {
-      const { data, error } = await supabase
-        .from("comics")
-        .insert({
+      if (seriesId) {
+        // Publish as a new episode of the series
+        const { count } = await supabase
+          .from("episodes" as any)
+          .select("id", { count: "exact", head: true })
+          .eq("series_id", seriesId);
+
+        const nextNumber = (count || 0) + 1;
+        const status = isPublic ? "published" : "draft";
+
+        const { error } = await supabase.from("episodes" as any).insert({
+          series_id: seriesId,
+          episode_number: nextNumber,
+          title: title.trim(),
+          comic_panels: comic.panels as any,
+          status,
+          published_at: status === "published" ? new Date().toISOString() : null,
+        });
+        if (error) throw error;
+
+        toast.success(
+          isPublic
+            ? `Épisode ${nextNumber} publié dans la série !`
+            : `Épisode ${nextNumber} sauvegardé en brouillon`
+        );
+      } else {
+        const { error } = await supabase.from("comics").insert({
           user_id: user.id,
           title: title.trim(),
           description: description.trim() || null,
           art_style: comic.artStyle || null,
           is_public: isPublic,
-          status: 'published'
-        })
-        .select()
-        .single();
+          status: "published",
+        });
+        if (error) throw error;
 
-      if (error) throw error;
+        toast.success(isPublic ? "BD publiée avec succès!" : "BD sauvegardée avec succès!");
+      }
 
-      toast.success(isPublic ? "BD publiée avec succès!" : "BD sauvegardée avec succès!");
       setOpen(false);
       onPublished?.();
     } catch (error) {
@@ -79,12 +105,14 @@ export const ComicPublishDialog = ({ comic, onPublished }: ComicPublishDialogPro
       <DialogTrigger asChild>
         <Button className="gap-2">
           <Upload className="h-4 w-4" />
-          Publier la BD
+          {seriesId ? "Publier comme épisode" : "Publier la BD"}
         </Button>
       </DialogTrigger>
       <DialogContent className="max-w-2xl">
         <DialogHeader>
-          <DialogTitle>Publier votre Bande Dessinée</DialogTitle>
+          <DialogTitle>
+            {seriesId ? "Publier comme épisode de série" : "Publier votre Bande Dessinée"}
+          </DialogTitle>
         </DialogHeader>
         <div className="space-y-4">
           <div>
