@@ -54,7 +54,10 @@ export const useDataProtection = () => {
       reason
     };
 
-    setAccessLogs(prev => [...prev.slice(-99), log]); // Garder 100 derniers logs
+    // Defer to avoid setState during render (filterSearchResults is called in render)
+    queueMicrotask(() => {
+      setAccessLogs(prev => [...prev.slice(-99), log]);
+    });
   }, [user?.id]);
 
   // Vérifier si un utilisateur peut accéder à un champ
