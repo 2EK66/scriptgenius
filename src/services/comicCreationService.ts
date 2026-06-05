@@ -102,8 +102,13 @@ export const generateAllPanelImages = async (
     try {
       // Skip cover page (already has base64 image) - upload to storage
       if (panel.panelNumber === 0 && panel.imageUrl && isBase64Image(panel.imageUrl)) {
-        const storageUrl = await uploadImageToStorage(panel.imageUrl, 'comic-images', userId);
-        updatedPanels.push({ ...panel, imageUrl: storageUrl, isGenerating: false });
+        let finalUrl = panel.imageUrl;
+        try {
+          finalUrl = await uploadImageToStorage(panel.imageUrl, 'comic-images', userId);
+        } catch (e) {
+          console.warn('Cover upload failed, keeping base64:', e);
+        }
+        updatedPanels.push({ ...panel, imageUrl: finalUrl, isGenerating: false });
         if (onProgress) {
           onProgress(i + 1, panels.length);
         }
@@ -114,8 +119,13 @@ export const generateAllPanelImages = async (
       
       // Upload generated image to storage if it's base64
       if (imageUrl && isBase64Image(imageUrl)) {
-        const storageUrl = await uploadImageToStorage(imageUrl, 'comic-images', userId);
-        updatedPanels.push({ ...panel, imageUrl: storageUrl, isGenerating: false });
+        let finalUrl = imageUrl;
+        try {
+          finalUrl = await uploadImageToStorage(imageUrl, 'comic-images', userId);
+        } catch (e) {
+          console.warn(`Upload failed for panel ${panel.panelNumber}, keeping base64:`, e);
+        }
+        updatedPanels.push({ ...panel, imageUrl: finalUrl, isGenerating: false });
       } else {
         updatedPanels.push({ ...panel, imageUrl, isGenerating: false });
       }
