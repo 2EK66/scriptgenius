@@ -39,9 +39,45 @@ const PremiumStore = () => {
   }, [user]);
 
   const fetchPremiumScripts = async () => {
-    // Données vides pour l'interface en attente
-    setScripts([]);
-    setLoading(false);
+    setLoading(true);
+    try {
+      const [s, c] = await Promise.all([
+        (supabase as any).from("scripts").select("*").eq("is_premium", true).eq("status", "published").not("price_xof", "is", null),
+        (supabase as any).from("comics").select("*").eq("is_premium", true).eq("status", "published").not("price_xof", "is", null),
+      ]);
+      const list: PremiumScript[] = [
+        ...((s.data || []).map((x: any) => ({
+          id: x.id,
+          title: x.title,
+          content: x.content || "",
+          genre: x.genre || "Scénario",
+          age_range: x.age_range || "all",
+          theme: x.theme || "",
+          created_at: x.created_at,
+          price: x.price_xof || 0,
+          author_name: "Créateur",
+          user_id: x.user_id,
+        }))),
+        ...((c.data || []).map((x: any) => ({
+          id: x.id,
+          title: x.title,
+          content: x.description || "",
+          genre: "BD",
+          age_range: "all",
+          theme: x.art_style || "",
+          created_at: x.created_at,
+          price: x.price_xof || 0,
+          author_name: "Créateur",
+          user_id: x.user_id,
+        }))),
+      ];
+      setScripts(list);
+    } catch (e) {
+      console.error(e);
+      setScripts([]);
+    } finally {
+      setLoading(false);
+    }
   };
 
   const filteredAndSortedScripts = scripts
