@@ -17,14 +17,18 @@ export type Database = {
       comics: {
         Row: {
           art_style: string | null
+          comic_panels: Json | null
           cover_image_url: string | null
           created_at: string | null
           description: string | null
           id: string
+          is_premium: boolean
           is_public: boolean | null
           likes_count: number | null
+          price_xof: number | null
           script_id: string | null
           status: string | null
+          terms_accepted_at: string | null
           title: string
           updated_at: string | null
           user_id: string | null
@@ -32,14 +36,18 @@ export type Database = {
         }
         Insert: {
           art_style?: string | null
+          comic_panels?: Json | null
           cover_image_url?: string | null
           created_at?: string | null
           description?: string | null
           id?: string
+          is_premium?: boolean
           is_public?: boolean | null
           likes_count?: number | null
+          price_xof?: number | null
           script_id?: string | null
           status?: string | null
+          terms_accepted_at?: string | null
           title: string
           updated_at?: string | null
           user_id?: string | null
@@ -47,14 +55,18 @@ export type Database = {
         }
         Update: {
           art_style?: string | null
+          comic_panels?: Json | null
           cover_image_url?: string | null
           created_at?: string | null
           description?: string | null
           id?: string
+          is_premium?: boolean
           is_public?: boolean | null
           likes_count?: number | null
+          price_xof?: number | null
           script_id?: string | null
           status?: string | null
+          terms_accepted_at?: string | null
           title?: string
           updated_at?: string | null
           user_id?: string | null
@@ -158,7 +170,10 @@ export type Database = {
           duration: number | null
           episode_number: number
           id: string
+          is_free_preview: boolean
+          is_premium: boolean
           like_count: number
+          price_xof: number | null
           published_at: string | null
           script_content: string | null
           series_id: string
@@ -173,7 +188,10 @@ export type Database = {
           duration?: number | null
           episode_number: number
           id?: string
+          is_free_preview?: boolean
+          is_premium?: boolean
           like_count?: number
+          price_xof?: number | null
           published_at?: string | null
           script_content?: string | null
           series_id: string
@@ -188,7 +206,10 @@ export type Database = {
           duration?: number | null
           episode_number?: number
           id?: string
+          is_free_preview?: boolean
+          is_premium?: boolean
           like_count?: number
+          price_xof?: number | null
           published_at?: string | null
           script_content?: string | null
           series_id?: string
@@ -421,9 +442,12 @@ export type Database = {
           genre: string
           id: string
           is_original: boolean | null
+          is_premium: boolean
           is_public: boolean | null
           likes_count: number | null
+          price_xof: number | null
           status: string | null
+          terms_accepted_at: string | null
           theme: string
           title: string
           updated_at: string | null
@@ -440,9 +464,12 @@ export type Database = {
           genre: string
           id?: string
           is_original?: boolean | null
+          is_premium?: boolean
           is_public?: boolean | null
           likes_count?: number | null
+          price_xof?: number | null
           status?: string | null
+          terms_accepted_at?: string | null
           theme: string
           title: string
           updated_at?: string | null
@@ -459,9 +486,12 @@ export type Database = {
           genre?: string
           id?: string
           is_original?: boolean | null
+          is_premium?: boolean
           is_public?: boolean | null
           likes_count?: number | null
+          price_xof?: number | null
           status?: string | null
+          terms_accepted_at?: string | null
           theme?: string
           title?: string
           updated_at?: string | null
