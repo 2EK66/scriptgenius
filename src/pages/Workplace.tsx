@@ -5,12 +5,15 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { BookOpen, Film, Palette, Plus, Lock, Globe, Crown, Trash2 } from "lucide-react";
+import { BookOpen, Film, Palette, Plus, Lock, Globe, Crown, Trash2, Upload, Send } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import PublishToGalleryDialog from "@/components/PublishToGalleryDialog";
 import PublishToPremiumDialog from "@/components/PublishToPremiumDialog";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogDescription, DialogFooter } from "@/components/ui/dialog";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 
 type Row = any;
 
@@ -28,6 +31,10 @@ const Workplace = () => {
   const [comics, setComics] = useState<Row[]>([]);
   const [series, setSeries] = useState<Row[]>([]);
   const [episodes, setEpisodes] = useState<Row[]>([]);
+  const [importOpen, setImportOpen] = useState(false);
+  const [importFile, setImportFile] = useState<File | null>(null);
+  const [importTitle, setImportTitle] = useState("");
+  const [importing, setImporting] = useState(false);
 
   const fetchAll = async () => {
     if (!user) return;
@@ -54,6 +61,32 @@ const Workplace = () => {
   };
 
   useEffect(() => { fetchAll(); /* eslint-disable-next-line */ }, [user]);
+
+  const handleImport = async () => {
+    if (!user || !importFile) return toast.error("Sélectionnez un fichier");
+    setImporting(true);
+    try {
+      const ext = importFile.name.split(".").pop() || "bin";
+      const path = `${user.id}/${Date.now()}.${ext}`;
+      const { error: upErr } = await supabase.storage.from("script-covers").upload(path, importFile, { upsert: false });
+      if (upErr) throw upErr;
+      const { data: pub } = supabase.storage.from("script-covers").getPublicUrl(path);
+      const { error: insErr } = await (supabase as any).from("scripts").insert({
+        user_id: user.id,
+        title: importTitle || importFile.name,
+        content: `Import: ${pub.publicUrl}`,
+        genre: "import",
+        is_public: false,
+        status: "draft",
+      });
+      if (insErr) throw insErr;
+      toast.success("Fichier importé dans votre espace");
+      setImportOpen(false); setImportFile(null); setImportTitle("");
+      fetchAll();
+    } catch (e: any) {
+      toast.error(e.message || "Échec de l'import");
+    } finally { setImporting(false); }
+  };
 
   const makePrivate = async (kind: "scripts" | "comics" | "series" | "episodes", id: string) => {
     const patch: any = { is_public: false, is_premium: false };
@@ -111,10 +144,36 @@ const Workplace = () => {
             <h1 className="text-3xl font-bold gradient-text mb-1">Mon Espace de Travail</h1>
             <p className="text-slate-600">Vos œuvres sont privées par défaut. Choisissez quand les publier.</p>
           </div>
-          <div className="flex gap-2">
+          <div className="flex flex-wrap gap-2">
+            <Button asChild variant="outline"><Link to="/comic-generator"><Palette className="h-4 w-4 mr-1" />Créer une BD</Link></Button>
+            <Button asChild variant="outline"><Link to="/series/create"><Film className="h-4 w-4 mr-1" />Mes Séries</Link></Button>
             <Button asChild variant="outline"><Link to="/scripts"><BookOpen className="h-4 w-4 mr-1" />Nouveau scénario</Link></Button>
-            <Button asChild variant="outline"><Link to="/comic-generator"><Palette className="h-4 w-4 mr-1" />Nouvelle BD</Link></Button>
-            <Button asChild><Link to="/series/create"><Film className="h-4 w-4 mr-1" />Nouvelle série</Link></Button>
+            <Button asChild><Link to="/comic-generator"><Send className="h-4 w-4 mr-1" />Publier ma BD</Link></Button>
+            <Dialog open={importOpen} onOpenChange={setImportOpen}>
+              <DialogTrigger asChild>
+                <Button variant="secondary"><Upload className="h-4 w-4 mr-1" />Importer une BD / un scénario</Button>
+              </DialogTrigger>
+              <DialogContent>
+                <DialogHeader>
+                  <DialogTitle>Importer une œuvre existante</DialogTitle>
+                  <DialogDescription>Formats acceptés : PDF, Word (.doc, .docx) ou image (JPG/PNG).</DialogDescription>
+                </DialogHeader>
+                <div className="space-y-3">
+                  <div>
+                    <Label htmlFor="imp-title">Titre</Label>
+                    <Input id="imp-title" value={importTitle} onChange={(e) => setImportTitle(e.target.value)} placeholder="Titre de l'œuvre" />
+                  </div>
+                  <div>
+                    <Label htmlFor="imp-file">Fichier</Label>
+                    <Input id="imp-file" type="file" accept=".pdf,.doc,.docx,image/*" onChange={(e) => setImportFile(e.target.files?.[0] || null)} />
+                  </div>
+                </div>
+                <DialogFooter>
+                  <Button variant="outline" onClick={() => setImportOpen(false)}>Annuler</Button>
+                  <Button onClick={handleImport} disabled={importing || !importFile}>{importing ? "Import…" : "Importer"}</Button>
+                </DialogFooter>
+              </DialogContent>
+            </Dialog>
           </div>
         </div>
 
