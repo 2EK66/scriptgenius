@@ -44,9 +44,14 @@ const Header = () => {
         <div className="flex items-center space-x-3">
           {user ? (
             <>
+              <Button asChild size="sm" className="bg-gradient-script text-white hover:opacity-90">
+                <Link to="/workplace" className="flex items-center">
+                  <Briefcase className="h-4 w-4 mr-2" /> Mon Espace
+                </Link>
+              </Button>
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>
-                  <Button variant="ghost" size="sm" className="px-2" aria-label="Mon Espace">
+                  <Button variant="ghost" size="sm" className="px-2" aria-label="Compte">
                     <Avatar className="h-8 w-8">
                       <AvatarFallback className="bg-gradient-script text-white text-sm">{initial}</AvatarFallback>
                     </Avatar>
