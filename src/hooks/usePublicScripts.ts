@@ -15,37 +15,30 @@ export const usePublicScripts = () => {
   const fetchPublicScripts = async () => {
     try {
       setLoading(true);
-      const { data, error } = await supabase
-        .from('series')
-        .select('*')
-        .eq('is_public', true)
-        .order('created_at', { ascending: false });
+      const [seriesRes, comicsRes, scriptsRes] = await Promise.all([
+        supabase.from('series').select('*').eq('is_public', true).order('created_at', { ascending: false }),
+        (supabase as any).from('comics').select('*').eq('is_public', true).eq('is_premium', false).eq('status', 'published').order('created_at', { ascending: false }),
+        (supabase as any).from('scripts').select('*').eq('is_public', true).eq('is_premium', false).eq('status', 'published').order('created_at', { ascending: false }),
+      ]);
 
-      if (error) throw error;
-      
-      // Transform series data to match PublicScript interface
-      const transformedData = (data || []).map(series => ({
-        id: series.id,
-        title: series.title,
-        content: series.description || '',
-        genre: series.genre || '',
-        age_range: 'all',
-        theme: series.genre || '',
-        view_count: series.view_count || 0,
-        likes_count: series.likes_count || 0,
-        created_at: series.created_at,
-        updated_at: series.updated_at,
-        user_id: series.user_id,
-        author_name: 'Créateur',
-        author_avatar: null,
-        is_public: true,
-        allow_social_sharing: true,
-        word_count: 0,
-        custom_idea: null,
-        status: 'published'
-      }));
-      
-      setScripts(transformedData as any);
+      if (seriesRes.error) throw seriesRes.error;
+
+      const mapRow = (s: any, genre: string, contentField = 'description') => ({
+        id: s.id, title: s.title, content: s[contentField] || '', genre: s.genre || genre,
+        age_range: s.age_range || 'all', theme: s.theme || s.art_style || s.genre || '',
+        view_count: s.view_count || 0, likes_count: s.likes_count || 0,
+        created_at: s.created_at, updated_at: s.updated_at, user_id: s.user_id,
+        author_name: 'Créateur', author_avatar: null, is_public: true,
+        allow_social_sharing: true, word_count: s.word_count || 0, custom_idea: null, status: 'published',
+      });
+
+      const all = [
+        ...(comicsRes.data || []).map((c: any) => mapRow(c, 'BD', 'description')),
+        ...(scriptsRes.data || []).map((s: any) => mapRow(s, 'Scénario', 'content')),
+        ...(seriesRes.data || []).map((s: any) => mapRow(s, 'Série', 'description')),
+      ].sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
+
+      setScripts(all as any);
     } catch (err) {
       console.error('Error fetching public scripts:', err);
       setError(err instanceof Error ? err.message : 'Erreur lors du chargement de la galerie');
