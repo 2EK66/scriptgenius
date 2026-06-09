@@ -117,7 +117,7 @@ FADE OUT.`
     const systemPrompt = "Tu es ScriptGenius, un assistant IA spécialisé dans la création de scénarios professionnels. Réponds uniquement en français."
 
     const geminiResp = await fetch(
-      `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${geminiApiKey}`,
+      `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${geminiApiKey}`,,
       {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
