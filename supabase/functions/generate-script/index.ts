@@ -85,6 +85,7 @@ serve(async (req) => {
     }
 
     // ===== PARTIE GÉNÉRATION AVEC FALLBACK =====
+    const lovableApiKey = Deno.env.get('LOVABLE_API_KEY')
     const hfApiKey = Deno.env.get('HUGGINGFACE_API_KEY')
     const geminiApiKey = Deno.env.get('GEMINI_API_KEY')
 
@@ -100,7 +101,58 @@ serve(async (req) => {
 
     let generatedContent = ''
 
-    // ---- TENTATIVE 1 : Hugging Face (Mistral) ----
+    // ---- TENTATIVE 1 : Lovable AI Gateway (Gemini) ----
+    if (lovableApiKey) {
+      try {
+        const sysPrompt = "Tu es ScriptGenius, un assistant IA spécialisé dans la création de scénarios professionnels de bandes dessinées. Réponds uniquement en français."
+        const userPrompt = `Crée un scénario de BD avec ces paramètres :
+- Genre: ${genre}
+- Public cible: ${ageRange}
+- Thème principal: ${theme}
+- Décor: ${setting || 'Non défini'}
+${characterDescriptions ? `- Personnages :\n${characterDescriptions}` : ''}
+- Longueur: ${lengthGuide}
+- Instructions spéciales: ${customIdea || 'Aucune'}
+
+Réponds OBLIGATOIREMENT dans ce format :
+TITRE: [Titre du scénario]
+LOGLINE: [Résumé en une phrase]
+FADE IN:
+[Contenu de l'histoire découpée en scènes numérotées]
+FADE OUT.`
+
+        const lovResp = await fetch('https://ai.gateway.lovable.dev/v1/chat/completions', {
+          method: 'POST',
+          headers: {
+            'Authorization': `Bearer ${lovableApiKey}`,
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            model: 'google/gemini-3-flash-preview',
+            messages: [
+              { role: 'system', content: sysPrompt },
+              { role: 'user', content: userPrompt },
+            ],
+          }),
+        })
+
+        if (lovResp.ok) {
+          const data = await lovResp.json()
+          const text = data?.choices?.[0]?.message?.content || ''
+          if (text) {
+            generatedContent = text
+            console.log('✅ Généré via Lovable AI Gateway')
+          }
+        } else {
+          const err = await lovResp.text()
+          console.error('Lovable AI failed:', lovResp.status, err)
+        }
+      } catch (e) {
+        console.error('Lovable AI exception:', e)
+      }
+    }
+
+    // ---- TENTATIVE 2 : Hugging Face (Mistral) ----
     if (hfApiKey) {
       try {
         const hfPrompt = `<s>[INST] Tu es ScriptGenius, un assistant IA spécialisé dans la création de scénarios professionnels de bandes dessinées. Réponds uniquement en français.
