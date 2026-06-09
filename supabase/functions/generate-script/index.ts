@@ -12,7 +12,7 @@ serve(async (req) => {
   }
 
   try {
-    const authHeader  = req.headers.get('Authorization') || ''
+    const authHeader = req.headers.get('Authorization') || ''
     const token = authHeader.replace('Bearer ', '').trim()
 
     const supabaseClient = createClient(
@@ -116,28 +116,49 @@ FADE OUT.`
 
     const systemPrompt = "Tu es ScriptGenius, un assistant IA spécialisé dans la création de scénarios professionnels. Réponds uniquement en français."
 
-    const geminiResp = await fetch(
-      `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${geminiApiKey}`,,
-      {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          systemInstruction: { parts: [{ text: systemPrompt }] },
-          contents: [{ role: 'user', parts: [{ text: prompt }] }],
-        }),
-      }
-    )
+    // Liste des modèles à essayer par ordre de préférence
+    const models = [
+      'gemini-1.5-flash',
+      'gemini-1.5-flash-8b',
+      'gemini-1.0-pro',
+    ]
 
-    if (!geminiResp.ok) {
+    let geminiData = null
+    let lastError = ''
+
+    for (const model of models) {
+      const geminiResp = await fetch(
+        `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${geminiApiKey}`,
+        {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            systemInstruction: { parts: [{ text: systemPrompt }] },
+            contents: [{ role: 'user', parts: [{ text: prompt }] }],
+          }),
+        }
+      )
+
+      if (geminiResp.ok) {
+        geminiData = await geminiResp.json()
+        break
+      }
+
       const errText = await geminiResp.text()
-      console.error('Gemini API error:', geminiResp.status, errText)
+      lastError = `${model}: ${geminiResp.status} ${errText}`
+      console.error('Gemini model failed:', lastError)
+
+      // Attendre 1 seconde avant d'essayer le modèle suivant
+      await new Promise(r => setTimeout(r, 1000))
+    }
+
+    if (!geminiData) {
       return new Response(
-        JSON.stringify({ error: `Erreur Gemini: ${geminiResp.status}`, details: errText }),
+        JSON.stringify({ error: 'Tous les modèles Gemini sont indisponibles', details: lastError }),
         { status: 502, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       )
     }
 
-    const geminiData = await geminiResp.json()
     const generatedContent = geminiData?.candidates?.[0]?.content?.parts?.map((p: any) => p.text).join('') || ''
 
     if (!generatedContent) {
