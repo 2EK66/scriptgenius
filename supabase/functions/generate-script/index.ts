@@ -153,7 +153,7 @@ FADE OUT.`
     }
 
     // ---- TENTATIVE 2 : Hugging Face (Mistral) ----
-    if (hfApiKey) {
+    if (!generatedContent && hfApiKey) {
       try {
         const hfPrompt = `<s>[INST] Tu es ScriptGenius, un assistant IA spécialisé dans la création de scénarios professionnels de bandes dessinées. Réponds uniquement en français.
 
