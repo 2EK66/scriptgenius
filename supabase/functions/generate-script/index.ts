@@ -84,22 +84,92 @@ serve(async (req) => {
       )
     }
 
+    // ===== PARTIE GÉNÉRATION AVEC FALLBACK =====
+    const hfApiKey = Deno.env.get('HUGGINGFACE_API_KEY')
     const geminiApiKey = Deno.env.get('GEMINI_API_KEY')
-    if (!geminiApiKey) {
-      console.error('Missing GEMINI_API_KEY')
-      return new Response(
-        JSON.stringify({ error: 'Configuration requise : Clé API Gemini manquante.' }),
-        { status: 503, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-      )
-    }
 
     const characterDescriptions = characters && characters.length > 0
       ? characters.map((char: any) => `- ${char.name} (${char.age} ans) - ${char.role}: ${char.description || 'À développer'}`).join('\n')
-      : null;
+      : null
 
-    const lengthGuide = { 'short': '500-800 mots', 'medium': '800-1200 mots', 'long': '1200-1800 mots' }[length as string] || '500-800 mots';
+    const lengthGuide = {
+      'short': '500-800 mots',
+      'medium': '800-1200 mots',
+      'long': '1200-1800 mots'
+    }[length as string] || '500-800 mots'
 
-    const prompt = `Genre: ${genre}
+    let generatedContent = ''
+
+    // ---- TENTATIVE 1 : Hugging Face ----
+    if (hfApiKey) {
+      try {
+        const hfPrompt = `<s>[INST] Tu es ScriptGenius, un assistant IA spécialisé dans la création de scénarios professionnels de bandes dessinées. Réponds uniquement en français.
+
+Crée un scénario de BD avec ces paramètres :
+- Genre: ${genre}
+- Public cible: ${ageRange}
+- Thème principal: ${theme}
+- Décor: ${setting || 'Non défini'}
+${characterDescriptions ? `- Personnages :\n${characterDescriptions}` : ''}
+- Longueur: ${lengthGuide}
+- Instructions spéciales: ${customIdea || 'Aucune'}
+
+Réponds OBLIGATOIREMENT dans ce format :
+TITRE: [Titre du scénario]
+LOGLINE: [Résumé en une phrase]
+FADE IN:
+[Contenu de l'histoire découpée en scènes numérotées]
+FADE OUT. [/INST]`
+
+        const hfResp = await fetch(
+          'https://api-inference.huggingface.co/models/mistralai/Mistral-7B-Instruct-v0.3',
+          {
+            method: 'POST',
+            headers: {
+              'Authorization': `Bearer ${hfApiKey}`,
+              'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+              inputs: hfPrompt,
+              parameters: {
+                max_new_tokens: 1500,
+                temperature: 0.7,
+                top_p: 0.9,
+                do_sample: true,
+                return_full_text: false,
+              }
+            }),
+          }
+        )
+
+        if (hfResp.ok) {
+          const hfData = await hfResp.json()
+          const text = Array.isArray(hfData)
+            ? hfData[0]?.generated_text || ''
+            : hfData?.generated_text || ''
+          if (text) {
+            generatedContent = text
+            console.log('✅ Généré via Hugging Face')
+          }
+        } else {
+          const err = await hfResp.text()
+          console.error('HuggingFace failed, falling back to Gemini:', hfResp.status, err)
+        }
+      } catch (hfError) {
+        console.error('HuggingFace exception, falling back to Gemini:', hfError)
+      }
+    }
+
+    // ---- TENTATIVE 2 : Gemini (fallback) ----
+    if (!generatedContent) {
+      if (!geminiApiKey) {
+        return new Response(
+          JSON.stringify({ error: 'Aucune API disponible. Clés manquantes.' }),
+          { status: 503, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        )
+      }
+
+      const geminiPrompt = `Genre: ${genre}
 Public cible: ${ageRange}
 Thème principal: ${theme}
 Décor: ${setting || 'Non défini'}
@@ -114,59 +184,46 @@ FADE IN:
 [Contenu de l'histoire découpée en scènes]
 FADE OUT.`
 
-    const systemPrompt = "Tu es ScriptGenius, un assistant IA spécialisé dans la création de scénarios professionnels. Réponds uniquement en français."
+      const systemPrompt = "Tu es ScriptGenius, un assistant IA spécialisé dans la création de scénarios professionnels. Réponds uniquement en français."
 
-    // Liste des modèles à essayer par ordre de préférence
-    const models = [
-      'gemini-1.5-flash',
-      'gemini-1.5-flash-8b',
-      'gemini-1.0-pro',
-    ]
+      const models = ['gemini-1.5-flash', 'gemini-1.5-flash-8b', 'gemini-1.0-pro']
 
-    let geminiData = null
-    let lastError = ''
+      for (const model of models) {
+        const geminiResp = await fetch(
+          `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${geminiApiKey}`,
+          {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              systemInstruction: { parts: [{ text: systemPrompt }] },
+              contents: [{ role: 'user', parts: [{ text: geminiPrompt }] }],
+            }),
+          }
+        )
 
-    for (const model of models) {
-      const geminiResp = await fetch(
-        `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${geminiApiKey}`,
-        {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            systemInstruction: { parts: [{ text: systemPrompt }] },
-            contents: [{ role: 'user', parts: [{ text: prompt }] }],
-          }),
+        if (geminiResp.ok) {
+          const geminiData = await geminiResp.json()
+          const text = geminiData?.candidates?.[0]?.content?.parts?.map((p: any) => p.text).join('') || ''
+          if (text) {
+            generatedContent = text
+            console.log(`✅ Généré via Gemini (${model})`)
+            break
+          }
+        } else {
+          const err = await geminiResp.text()
+          console.error(`Gemini ${model} failed:`, geminiResp.status, err)
+          await new Promise(r => setTimeout(r, 1000))
         }
-      )
-
-      if (geminiResp.ok) {
-        geminiData = await geminiResp.json()
-        break
       }
-
-      const errText = await geminiResp.text()
-      lastError = `${model}: ${geminiResp.status} ${errText}`
-      console.error('Gemini model failed:', lastError)
-
-      // Attendre 1 seconde avant d'essayer le modèle suivant
-      await new Promise(r => setTimeout(r, 1000))
     }
-
-    if (!geminiData) {
-      return new Response(
-        JSON.stringify({ error: 'Tous les modèles Gemini sont indisponibles', details: lastError }),
-        { status: 502, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-      )
-    }
-
-    const generatedContent = geminiData?.candidates?.[0]?.content?.parts?.map((p: any) => p.text).join('') || ''
 
     if (!generatedContent) {
       return new Response(
-        JSON.stringify({ error: 'Réponse Gemini vide' }),
+        JSON.stringify({ error: 'Tous les services IA sont indisponibles. Réessayez dans quelques minutes.' }),
         { status: 502, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       )
     }
+    // ===== FIN DE LA GÉNÉRATION =====
 
     const titleMatch = generatedContent.match(/TITRE:\s*(.+)/i)
     const title = titleMatch ? titleMatch[1].trim() : `Scénario ${genre}`
@@ -187,7 +244,10 @@ FADE OUT.`
       .single()
 
     if (insertError) {
-      return new Response(JSON.stringify({ error: 'Failed to save script' }), { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } })
+      return new Response(
+        JSON.stringify({ error: 'Failed to save script' }),
+        { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      )
     }
 
     const nextTodayCount = lastDate === today ? (profile.scripts_generated_today || 0) + 1 : 1
@@ -208,6 +268,9 @@ FADE OUT.`
 
   } catch (error) {
     console.error('Error in generate-script:', error)
-    return new Response(JSON.stringify({ error: 'Internal server error' }), { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } })
+    return new Response(
+      JSON.stringify({ error: 'Internal server error' }),
+      { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+    )
   }
 })
