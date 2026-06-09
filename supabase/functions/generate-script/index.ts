@@ -100,7 +100,7 @@ serve(async (req) => {
 
     let generatedContent = ''
 
-    // ---- TENTATIVE 1 : Hugging Face ----
+    // ---- TENTATIVE 1 : Hugging Face (Mistral) ----
     if (hfApiKey) {
       try {
         const hfPrompt = `<s>[INST] Tu es ScriptGenius, un assistant IA spécialisé dans la création de scénarios professionnels de bandes dessinées. Réponds uniquement en français.
@@ -160,7 +160,7 @@ FADE OUT. [/INST]`
       }
     }
 
-    // ---- TENTATIVE 2 : Gemini (fallback) ----
+    // ---- TENTATIVE 2 : Gemini (fallback avec les modèles à jour) ----
     if (!generatedContent) {
       if (!geminiApiKey) {
         return new Response(
@@ -186,7 +186,12 @@ FADE OUT.`
 
       const systemPrompt = "Tu es ScriptGenius, un assistant IA spécialisé dans la création de scénarios professionnels. Réponds uniquement en français."
 
-      const models = ['gemini-1.5-flash', 'gemini-1.5-flash-8b', 'gemini-1.0-pro']
+      // Modèles Gemini valides actuellement (février 2025)
+      const models = [
+        'gemini-2.0-flash',
+        'gemini-2.0-flash-lite',
+        'gemini-1.5-flash-latest'
+      ]
 
       for (const model of models) {
         const geminiResp = await fetch(
@@ -212,6 +217,7 @@ FADE OUT.`
         } else {
           const err = await geminiResp.text()
           console.error(`Gemini ${model} failed:`, geminiResp.status, err)
+          // Petit délai avant de passer au modèle suivant
           await new Promise(r => setTimeout(r, 1000))
         }
       }
