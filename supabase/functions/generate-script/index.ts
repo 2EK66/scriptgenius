@@ -15,6 +15,7 @@ serve(async (req) => {
     const authHeader = req.headers.get('Authorization') || ''
     const token = authHeader.replace('Bearer ', '').trim()
 
+    // Client utilisateur — uniquement pour vérifier l'auth
     const supabaseClient = createClient(
       Deno.env.get('SUPABASE_URL') ?? '',
       Deno.env.get('SUPABASE_ANON_KEY') ?? '',
@@ -24,8 +25,16 @@ serve(async (req) => {
       }
     )
 
-    const { data: { user }, error: authError } = await supabaseClient.auth.getUser()
+    // Client admin — pour toutes les opérations DB sans blocage RLS
+    const supabaseAdmin = createClient(
+      Deno.env.get('SUPABASE_URL') ?? '',
+      Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? '',
+      {
+        auth: { autoRefreshToken: false, persistSession: false },
+      }
+    )
 
+    const { data: { user }, error: authError } = await supabaseClient.auth.getUser()
     if (authError || !user) {
       return new Response(
         JSON.stringify({ error: 'Unauthorized' }),
@@ -33,26 +42,14 @@ serve(async (req) => {
       )
     }
 
-    const {
-      genre,
-      ageRange,
-      theme,
-      customIdea,
-      characters,
-      setting,
-      tone,
-      length,
-      plotStructure
-    } = await req.json()
+    const { genre, ageRange, theme, customIdea, characters, setting, length } = await req.json()
 
-    let { data: profile, error: profileError } = await supabaseClient
-      .from('profiles')
-      .select('*')
-      .eq('id', user.id)
-      .single()
+    // Lecture profil via admin
+    let { data: profile, error: profileError } = await supabaseAdmin
+      .from('profiles').select('*').eq('id', user.id).single()
 
     if (profileError || !profile) {
-      const { data: newProfile, error: createError } = await supabaseClient
+      const { data: newProfile, error: createError } = await supabaseAdmin
         .from('profiles')
         .insert({
           id: user.id,
@@ -61,8 +58,7 @@ serve(async (req) => {
           scripts_generated_today: 0,
           scripts_generated_total: 0,
         })
-        .select()
-        .single()
+        .select().single()
 
       if (createError || !newProfile) {
         return new Response(
@@ -84,8 +80,6 @@ serve(async (req) => {
       )
     }
 
-    // ===== PARTIE GÉNÉRATION AVEC FALLBACK =====
-    const lovableApiKey = Deno.env.get('LOVABLE_API_KEY')
     const hfApiKey = Deno.env.get('HUGGINGFACE_API_KEY')
     const geminiApiKey = Deno.env.get('GEMINI_API_KEY')
 
@@ -99,20 +93,14 @@ serve(async (req) => {
       'long': '1200-1800 mots'
     }[length as string] || '500-800 mots'
 
-    let generatedContent = ''
-
-    // ---- TENTATIVE 1 : Lovable AI Gateway (Gemini) ----
-    if (lovableApiKey) {
-      try {
-        const sysPrompt = "Tu es ScriptGenius, un assistant IA spécialisé dans la création de scénarios professionnels de bandes dessinées. Réponds uniquement en français."
-        const userPrompt = `Crée un scénario de BD avec ces paramètres :
-- Genre: ${genre}
-- Public cible: ${ageRange}
-- Thème principal: ${theme}
-- Décor: ${setting || 'Non défini'}
-${characterDescriptions ? `- Personnages :\n${characterDescriptions}` : ''}
-- Longueur: ${lengthGuide}
-- Instructions spéciales: ${customIdea || 'Aucune'}
+    const basePrompt = `Crée un scénario de bande dessinée professionnel en français avec ces paramètres :
+Genre: ${genre}
+Public cible: ${ageRange}
+Thème principal: ${theme}
+Décor: ${setting || 'Non défini'}
+${characterDescriptions ? `Personnages :\n${characterDescriptions}` : ''}
+Longueur: ${lengthGuide}
+Instructions spéciales: ${customIdea || 'Aucune'}
 
 Réponds OBLIGATOIREMENT dans ce format :
 TITRE: [Titre du scénario]
@@ -121,60 +109,16 @@ FADE IN:
 [Contenu de l'histoire découpée en scènes numérotées]
 FADE OUT.`
 
-        const lovResp = await fetch('https://ai.gateway.lovable.dev/v1/chat/completions', {
-          method: 'POST',
-          headers: {
-            'Authorization': `Bearer ${lovableApiKey}`,
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify({
-            model: 'google/gemini-3-flash-preview',
-            messages: [
-              { role: 'system', content: sysPrompt },
-              { role: 'user', content: userPrompt },
-            ],
-          }),
-        })
+    let generatedContent = ''
 
-        if (lovResp.ok) {
-          const data = await lovResp.json()
-          const text = data?.choices?.[0]?.message?.content || ''
-          if (text) {
-            generatedContent = text
-            console.log('✅ Généré via Lovable AI Gateway')
-          }
-        } else {
-          const err = await lovResp.text()
-          console.error('Lovable AI failed:', lovResp.status, err)
-        }
-      } catch (e) {
-        console.error('Lovable AI exception:', e)
-      }
-    }
-
-    // ---- TENTATIVE 2 : Hugging Face (Mistral) ----
-    if (!generatedContent && hfApiKey) {
+    // ---- TENTATIVE 1 : Hugging Face ----
+    if (hfApiKey) {
       try {
-        const hfPrompt = `<s>[INST] Tu es ScriptGenius, un assistant IA spécialisé dans la création de scénarios professionnels de bandes dessinées. Réponds uniquement en français.
-
-Crée un scénario de BD avec ces paramètres :
-- Genre: ${genre}
-- Public cible: ${ageRange}
-- Thème principal: ${theme}
-- Décor: ${setting || 'Non défini'}
-${characterDescriptions ? `- Personnages :\n${characterDescriptions}` : ''}
-- Longueur: ${lengthGuide}
-- Instructions spéciales: ${customIdea || 'Aucune'}
-
-Réponds OBLIGATOIREMENT dans ce format :
-TITRE: [Titre du scénario]
-LOGLINE: [Résumé en une phrase]
-FADE IN:
-[Contenu de l'histoire découpée en scènes numérotées]
-FADE OUT. [/INST]`
+        const controller = new AbortController()
+        const timeout = setTimeout(() => controller.abort(), 25000)
 
         const hfResp = await fetch(
-          'https://api-inference.huggingface.co/models/mistralai/Mistral-7B-Instruct-v0.3',
+          'https://api-inference.huggingface.co/models/HuggingFaceH4/zephyr-7b-beta',
           {
             method: 'POST',
             headers: {
@@ -182,7 +126,7 @@ FADE OUT. [/INST]`
               'Content-Type': 'application/json',
             },
             body: JSON.stringify({
-              inputs: hfPrompt,
+              inputs: `<|system|>Tu es ScriptGenius, expert en scénarios de BD. Réponds uniquement en français.</s><|user|>${basePrompt}</s><|assistant|>`,
               parameters: {
                 max_new_tokens: 1500,
                 temperature: 0.7,
@@ -191,87 +135,69 @@ FADE OUT. [/INST]`
                 return_full_text: false,
               }
             }),
+            signal: controller.signal,
           }
         )
+        clearTimeout(timeout)
 
         if (hfResp.ok) {
           const hfData = await hfResp.json()
           const text = Array.isArray(hfData)
             ? hfData[0]?.generated_text || ''
             : hfData?.generated_text || ''
-          if (text) {
+          if (text && text.length > 100) {
             generatedContent = text
             console.log('✅ Généré via Hugging Face')
           }
         } else {
           const err = await hfResp.text()
-          console.error('HuggingFace failed, falling back to Gemini:', hfResp.status, err)
+          console.error('HuggingFace failed:', hfResp.status, err)
         }
       } catch (hfError) {
-        console.error('HuggingFace exception, falling back to Gemini:', hfError)
+        console.error('HuggingFace exception:', hfError)
       }
     }
 
-    // ---- TENTATIVE 2 : Gemini (fallback avec les modèles à jour) ----
-    if (!generatedContent) {
-      if (!geminiApiKey) {
-        return new Response(
-          JSON.stringify({ error: 'Aucune API disponible. Clés manquantes.' }),
-          { status: 503, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-        )
-      }
+    // ---- TENTATIVE 2 : Gemini (fallback) ----
+    if (!generatedContent && geminiApiKey) {
+      const systemPrompt = "Tu es ScriptGenius, un assistant IA spécialisé dans la création de scénarios professionnels de BD. Réponds uniquement en français."
 
-      const geminiPrompt = `Genre: ${genre}
-Public cible: ${ageRange}
-Thème principal: ${theme}
-Décor: ${setting || 'Non défini'}
-${characterDescriptions ? `Personnages :\n${characterDescriptions}` : ''}
-Longueur: ${lengthGuide}
-Instructions spéciales: ${customIdea || 'Aucune'}
-
-Format attendu obligatoirement :
-TITRE: [Titre]
-LOGLINE: [Résumé]
-FADE IN:
-[Contenu de l'histoire découpée en scènes]
-FADE OUT.`
-
-      const systemPrompt = "Tu es ScriptGenius, un assistant IA spécialisé dans la création de scénarios professionnels. Réponds uniquement en français."
-
-      // Modèles Gemini valides actuellement (février 2025)
       const models = [
+        'gemini-1.5-flash',
         'gemini-2.0-flash',
-        'gemini-2.0-flash-lite',
-        'gemini-1.5-flash-latest'
+        'gemini-1.5-pro',
       ]
 
       for (const model of models) {
-        const geminiResp = await fetch(
-          `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${geminiApiKey}`,
-          {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-              systemInstruction: { parts: [{ text: systemPrompt }] },
-              contents: [{ role: 'user', parts: [{ text: geminiPrompt }] }],
-            }),
-          }
-        )
+        try {
+          const geminiResp = await fetch(
+            `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${geminiApiKey}`,
+            {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({
+                systemInstruction: { parts: [{ text: systemPrompt }] },
+                contents: [{ role: 'user', parts: [{ text: basePrompt }] }],
+              }),
+            }
+          )
 
-        if (geminiResp.ok) {
-          const geminiData = await geminiResp.json()
-          const text = geminiData?.candidates?.[0]?.content?.parts?.map((p: any) => p.text).join('') || ''
-          if (text) {
-            generatedContent = text
-            console.log(`✅ Généré via Gemini (${model})`)
-            break
+          if (geminiResp.ok) {
+            const geminiData = await geminiResp.json()
+            const text = geminiData?.candidates?.[0]?.content?.parts?.map((p: any) => p.text).join('') || ''
+            if (text) {
+              generatedContent = text
+              console.log(`✅ Généré via Gemini (${model})`)
+              break
+            }
+          } else {
+            const err = await geminiResp.text()
+            console.error(`Gemini ${model} failed:`, geminiResp.status, err)
           }
-        } else {
-          const err = await geminiResp.text()
-          console.error(`Gemini ${model} failed:`, geminiResp.status, err)
-          // Petit délai avant de passer au modèle suivant
-          await new Promise(r => setTimeout(r, 1000))
+        } catch (geminiError) {
+          console.error(`Exception Gemini ${model}:`, geminiError)
         }
+        await new Promise(r => setTimeout(r, 500))
       }
     }
 
@@ -281,12 +207,12 @@ FADE OUT.`
         { status: 502, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       )
     }
-    // ===== FIN DE LA GÉNÉRATION =====
 
     const titleMatch = generatedContent.match(/TITRE:\s*(.+)/i)
     const title = titleMatch ? titleMatch[1].trim() : `Scénario ${genre}`
 
-    const { data: script, error: insertError } = await supabaseClient
+    // Insert script via admin
+    const { data: script, error: insertError } = await supabaseAdmin
       .from('scripts')
       .insert({
         user_id: user.id,
@@ -298,8 +224,7 @@ FADE OUT.`
         custom_idea: customIdea,
         word_count: generatedContent.split(' ').length,
       })
-      .select()
-      .single()
+      .select().single()
 
     if (insertError) {
       return new Response(
@@ -308,8 +233,9 @@ FADE OUT.`
       )
     }
 
+    // Update compteur via admin
     const nextTodayCount = lastDate === today ? (profile.scripts_generated_today || 0) + 1 : 1
-    await supabaseClient
+    await supabaseAdmin
       .from('profiles')
       .update({
         scripts_generated_today: nextTodayCount,
