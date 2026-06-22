@@ -45,7 +45,6 @@ export const analyzeScriptForComic = async (
   }
 };
 
-export const generatePanelImage = async (
 // Dessine une bulle de dialogue BD sur une image base64
 export const addSpeechBubbleToImage = (imageUrl: string, dialogue: string): Promise<string> => {
   return new Promise((resolve) => {
