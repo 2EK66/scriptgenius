@@ -161,12 +161,10 @@ export const ComicCreator = () => {
     const pageHeight = pdf.internal.pageSize.getHeight();
     const margin = 8;
     const cols = 2;
-    const imgH = 75;
-    const dlgH = 14;
-    const panelH = imgH + dlgH;
+    const rows = 3;
     const panelW = (pageWidth - margin * (cols + 1)) / cols;
-    const maxRows = Math.floor((pageHeight - margin) / (panelH + margin));
-    const perPage = cols * maxRows;
+    const panelH = (pageHeight - margin * (rows + 1)) / rows;
+    const perPage = cols * rows;
 
     let col = 0;
     let row = 0;
@@ -185,46 +183,19 @@ export const ComicCreator = () => {
       const x = margin + col * (panelW + margin);
       const y = margin + row * (panelH + margin);
 
-      // Image du panel
       try {
         const fmt = panel.imageUrl.includes('image/png') ? 'PNG' : 'JPEG';
-        pdf.addImage(panel.imageUrl, fmt, x, y, panelW, imgH);
+        pdf.addImage(panel.imageUrl, fmt, x, y, panelW, panelH);
       } catch (e) {
         pdf.setFillColor(220, 220, 220);
-        pdf.rect(x, y, panelW, imgH, 'F');
+        pdf.rect(x, y, panelW, panelH, 'F');
       }
 
-      // Bordure autour de l'image
-      pdf.setDrawColor(60, 60, 60);
-      pdf.setLineWidth(0.3);
-      pdf.rect(x, y, panelW, imgH);
+      // Bordure
+      pdf.setDrawColor(30, 30, 30);
+      pdf.setLineWidth(0.5);
+      pdf.rect(x, y, panelW, panelH);
 
-      // Zone dialogue blanche SOUS l'image (pas dessus)
-      const dlgY = y + imgH;
-      pdf.setFillColor(255, 255, 255);
-      pdf.rect(x, dlgY, panelW, dlgH, 'F');
-      pdf.setDrawColor(60, 60, 60);
-      pdf.setLineWidth(0.3);
-      pdf.rect(x, dlgY, panelW, dlgH);
-
-      // Texte du dialogue dans la zone blanche
-      if (panel.dialogue && panel.dialogue.trim()) {
-        pdf.setTextColor(20, 20, 20);
-        pdf.setFontSize(7);
-        pdf.setFont('helvetica', 'italic');
-        const text = panel.dialogue.length > 120
-          ? panel.dialogue.substring(0, 120) + '...'
-          : panel.dialogue;
-        const lines = pdf.splitTextToSize(`"${text}"`, panelW - 4);
-        pdf.text(lines.slice(0, 2), x + 2, dlgY + 5);
-      } else {
-        pdf.setTextColor(150, 150, 150);
-        pdf.setFontSize(7);
-        pdf.setFont('helvetica', 'normal');
-        pdf.text(`Panel ${panel.panelNumber}`, x + 2, dlgY + 9);
-      }
-
-      // Avancer position grille
       col++;
       if (col >= cols) { col = 0; row++; }
       panelsOnPage++;

@@ -45,6 +45,101 @@ export const analyzeScriptForComic = async (
   }
 };
 
+// Dessine une bulle de dialogue BD sur une image base64
+export const addSpeechBubbleToImage = (imageUrl: string, dialogue: string): Promise<string> => {
+  return new Promise((resolve) => {
+    if (!dialogue || !dialogue.trim()) {
+      resolve(imageUrl);
+      return;
+    }
+
+    const img = new Image();
+    img.crossOrigin = 'anonymous';
+    img.onload = () => {
+      const canvas = document.createElement('canvas');
+      canvas.width = img.width;
+      canvas.height = img.height;
+      const ctx = canvas.getContext('2d')!;
+
+      ctx.drawImage(img, 0, 0);
+
+      const maxWidth = canvas.width * 0.55;
+      const padding = 14;
+      const fontSize = Math.max(16, canvas.width * 0.028);
+      const lineHeight = fontSize * 1.35;
+      const tailSize = 18;
+
+      ctx.font = `bold ${fontSize}px Arial, sans-serif`;
+
+      const words = dialogue.split(' ');
+      const lines: string[] = [];
+      let currentLine = '';
+      for (const word of words) {
+        const test = currentLine ? `${currentLine} ${word}` : word;
+        if (ctx.measureText(test).width > maxWidth - padding * 2) {
+          if (currentLine) lines.push(currentLine);
+          currentLine = word;
+        } else {
+          currentLine = test;
+        }
+      }
+      if (currentLine) lines.push(currentLine);
+      const maxLines = 3;
+      const shownLines = lines.slice(0, maxLines);
+      if (lines.length > maxLines) shownLines[maxLines - 1] += '…';
+
+      const textWidth = Math.max(...shownLines.map(l => ctx.measureText(l).width));
+      const bubbleW = textWidth + padding * 2;
+      const bubbleH = shownLines.length * lineHeight + padding * 2;
+
+      const bubbleX = canvas.width - bubbleW - 20;
+      const bubbleY = 20;
+      const r = 16;
+
+      ctx.shadowColor = 'rgba(0,0,0,0.25)';
+      ctx.shadowBlur = 8;
+      ctx.shadowOffsetX = 2;
+      ctx.shadowOffsetY = 2;
+
+      ctx.beginPath();
+      ctx.moveTo(bubbleX + r, bubbleY);
+      ctx.lineTo(bubbleX + bubbleW - r, bubbleY);
+      ctx.quadraticCurveTo(bubbleX + bubbleW, bubbleY, bubbleX + bubbleW, bubbleY + r);
+      ctx.lineTo(bubbleX + bubbleW, bubbleY + bubbleH - r);
+      ctx.quadraticCurveTo(bubbleX + bubbleW, bubbleY + bubbleH, bubbleX + bubbleW - r, bubbleY + bubbleH);
+      ctx.lineTo(bubbleX + 60, bubbleY + bubbleH);
+      ctx.lineTo(bubbleX + 30, bubbleY + bubbleH + tailSize);
+      ctx.lineTo(bubbleX + 30, bubbleY + bubbleH);
+      ctx.lineTo(bubbleX + r, bubbleY + bubbleH);
+      ctx.quadraticCurveTo(bubbleX, bubbleY + bubbleH, bubbleX, bubbleY + bubbleH - r);
+      ctx.lineTo(bubbleX, bubbleY + r);
+      ctx.quadraticCurveTo(bubbleX, bubbleY, bubbleX + r, bubbleY);
+      ctx.closePath();
+
+      ctx.fillStyle = '#ffffff';
+      ctx.fill();
+
+      ctx.shadowColor = 'transparent';
+      ctx.shadowBlur = 0;
+      ctx.strokeStyle = '#111111';
+      ctx.lineWidth = Math.max(2, canvas.width * 0.004);
+      ctx.stroke();
+
+      ctx.fillStyle = '#111111';
+      ctx.font = `bold ${fontSize}px Arial, sans-serif`;
+      ctx.textBaseline = 'top';
+      shownLines.forEach((line, i) => {
+        ctx.fillText(line, bubbleX + padding, bubbleY + padding + i * lineHeight);
+      });
+
+      resolve(canvas.toDataURL('image/png'));
+    };
+
+    img.onerror = () => resolve(imageUrl);
+    img.src = imageUrl;
+  });
+};
+
 export const generatePanelImage = async (
   panel: ComicPanel,
   style: string
@@ -126,7 +221,18 @@ export const generateAllPanelImages = async (
         }
       }
 
-      updatedPanels.push({ ...panel, imageUrl: finalUrl, isGenerating: false });
+      // Ajouter la bulle de dialogue sur l'image
+      let imageWithBubble = finalUrl;
+      if (panel.dialogue && panel.dialogue.trim() && finalUrl) {
+        try {
+          imageWithBubble = await addSpeechBubbleToImage(finalUrl, panel.dialogue);
+        } catch (e) {
+          console.warn(`[Panel ${panel.panelNumber}] Bulle non ajoutée:`, e);
+          imageWithBubble = finalUrl;
+        }
+      }
+
+      updatedPanels.push({ ...panel, imageUrl: imageWithBubble, isGenerating: false });
       successCount++;
       console.log(`[Panel ${panel.panelNumber}] ✅ Image générée`);
 
