@@ -221,7 +221,18 @@ export const generateAllPanelImages = async (
         }
       }
 
-      updatedPanels.push({ ...panel, imageUrl: finalUrl, isGenerating: false });
+      // Ajouter la bulle de dialogue sur l'image
+      let imageWithBubble = finalUrl;
+      if (panel.dialogue && panel.dialogue.trim() && finalUrl) {
+        try {
+          imageWithBubble = await addSpeechBubbleToImage(finalUrl, panel.dialogue);
+        } catch (e) {
+          console.warn(`[Panel ${panel.panelNumber}] Bulle non ajoutée:`, e);
+          imageWithBubble = finalUrl;
+        }
+      }
+
+      updatedPanels.push({ ...panel, imageUrl: imageWithBubble, isGenerating: false });
       successCount++;
       console.log(`[Panel ${panel.panelNumber}] ✅ Image générée`);
 
