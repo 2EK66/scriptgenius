@@ -1,4 +1,8 @@
-import { supabase } from '@/integrations/supabase/client';
+// ✅ VERSION CORRIGÉE — utilise fetch direct au lieu de supabase.functions.invoke
+// qui échouait silencieusement avant même d'envoyer la requête réseau.
+
+const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL || 'https://grabfyemmvlskhsxbuec.supabase.co';
+const SUPABASE_ANON_KEY = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY || '';
 
 export interface GenerateImageParams {
   positivePrompt: string;
@@ -30,57 +34,72 @@ export interface GenerateImageResponse {
 export class RunwareService {
   async generateImage(params: GenerateImageParams): Promise<GenerateImageResponse> {
     try {
-      // ✅ CORRECTION : suppression de la vérification de session bloquante.
-      // generate-comic-image est public (verify_jwt: false) et gère l'auth côté serveur.
-      // La vérification de session ici causait un échec silencieux quand getSession() = null.
+      console.log('[RunwareService] Appel direct fetch vers generate-comic-image...');
+      console.log('[RunwareService] URL:', `${SUPABASE_URL}/functions/v1/generate-comic-image`);
+      console.log('[RunwareService] Prompt:', params.positivePrompt?.substring(0, 60));
 
-      console.log('Calling generate-comic-image with prompt:', params.positivePrompt);
+      // Timeout de 90 secondes (HuggingFace peut être lent)
+      const controller = new AbortController();
+      const timeout = setTimeout(() => controller.abort(), 90000);
 
-      const { data, error } = await supabase.functions.invoke('generate-comic-image', {
-        body: {
+      const response = await fetch(`${SUPABASE_URL}/functions/v1/generate-comic-image`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'apikey': SUPABASE_ANON_KEY,
+          'Authorization': `Bearer ${SUPABASE_ANON_KEY}`,
+        },
+        body: JSON.stringify({
           positivePrompt: params.positivePrompt,
           width: params.width || 768,
           height: params.height || 512,
-        },
+        }),
+        signal: controller.signal,
       });
 
-      console.log('Function response:', { data, error });
+      clearTimeout(timeout);
 
-      if (error) {
-        console.error('Image generation error:', error);
+      console.log('[RunwareService] HTTP status:', response.status);
+
+      if (!response.ok) {
+        const errText = await response.text();
+        console.error('[RunwareService] Erreur HTTP:', response.status, errText.substring(0, 200));
         return {
           success: false,
-          error: error.message || 'Failed to generate image'
+          error: `Erreur serveur ${response.status}: ${errText.substring(0, 100)}`,
         };
       }
 
-      if (!data || !data.success) {
-        console.error('Image generation failed:', data?.error);
+      const data = await response.json();
+      console.log('[RunwareService] Réponse:', { success: data.success, hasImage: !!data.image?.url });
+
+      if (!data.success || !data.image?.url) {
+        console.error('[RunwareService] Échec génération:', data.error);
         return {
           success: false,
-          error: data?.error || 'Failed to generate image'
+          error: data.error || 'Génération échouée',
         };
       }
 
-      console.log('Image generated successfully:', data.image?.url?.substring(0, 50));
+      console.log('[RunwareService] ✅ Image reçue:', data.image.url.substring(0, 40));
       return data;
 
-    } catch (error) {
-      console.error('Image generation error:', error);
+    } catch (error: any) {
+      if (error.name === 'AbortError') {
+        console.error('[RunwareService] Timeout 90s dépassé');
+        return { success: false, error: 'Timeout : HuggingFace a pris trop de temps' };
+      }
+      console.error('[RunwareService] Exception:', error.message);
       return {
         success: false,
-        error: error instanceof Error ? error.message : 'Une erreur inattendue est survenue'
+        error: error.message || 'Erreur inattendue',
       };
     }
   }
 
   async generateComicPanel(description: string, artStyle: string, customPrompt?: string): Promise<GeneratedImage> {
     let prompt = `${description}, ${artStyle} style`;
-
-    if (customPrompt) {
-      prompt += `, ${customPrompt}`;
-    }
-
+    if (customPrompt) prompt += `, ${customPrompt}`;
     prompt += ', comic book panel, professional illustration, high quality, detailed artwork';
 
     const result = await this.generateImage({
@@ -92,7 +111,6 @@ export class RunwareService {
     if (!result.success || !result.image) {
       throw new Error(result.error || 'Failed to generate comic panel');
     }
-
     return result.image;
   }
 }
