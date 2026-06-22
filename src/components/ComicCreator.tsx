@@ -150,6 +150,7 @@ export const ComicCreator = () => {
     }
   };
 
+  // ✅ REMPLACE uniquement la fonction handleExportPDF dans ComicCreator.tsx
   const handleExportPDF = () => {
     if (panels.length === 0 || !panels.some(p => p.imageUrl)) {
       toast.error('Aucune image à exporter');
@@ -159,39 +160,76 @@ export const ComicCreator = () => {
     const pdf = new jsPDF('p', 'mm', 'a4');
     const pageWidth = pdf.internal.pageSize.getWidth();
     const pageHeight = pdf.internal.pageSize.getHeight();
-    const margin = 10;
-    const panelWidth = (pageWidth - margin * 3) / 2;
-    const panelHeight = (pageHeight - margin * 4) / 3;
+    const margin = 8;
+    const cols = 2;
+    const imgH = 80;
+    const dlgH = 16;
+    const panelH = imgH + dlgH;
+    const panelW = (pageWidth - margin * (cols + 1)) / cols;
+    const maxRows = Math.floor((pageHeight - margin) / (panelH + margin));
+    const perPage = cols * maxRows;
 
-    let currentPage = 0;
-    let panelIndex = 0;
+    let col = 0;
+    let row = 0;
+    let panelsOnPage = 0;
 
-    panels.forEach((panel, idx) => {
+    panels.forEach((panel) => {
       if (!panel.imageUrl) return;
 
-      const row = Math.floor(panelIndex / 2);
-      const col = panelIndex % 2;
-
-      if (panelIndex > 0 && panelIndex % panelsPerPage === 0) {
+      if (panelsOnPage > 0 && panelsOnPage % perPage === 0) {
         pdf.addPage();
-        currentPage++;
-        panelIndex = 0;
+        col = 0;
+        row = 0;
       }
 
-      const x = margin + col * (panelWidth + margin);
-      const y = margin + row * (panelHeight + margin);
+      const x = margin + col * (panelW + margin);
+      const y = margin + row * (panelH + margin);
 
-      pdf.addImage(panel.imageUrl, 'WEBP', x, y, panelWidth, panelHeight);
-
-      if (panel.dialogue) {
-        pdf.setFontSize(8);
-        pdf.text(panel.dialogue, x + 2, y + panelHeight - 2, { maxWidth: panelWidth - 4 });
+      // Image
+      try {
+        const format = panel.imageUrl.includes('image/png') ? 'PNG' : 'JPEG';
+        pdf.addImage(panel.imageUrl, format, x, y, panelW, imgH);
+      } catch (e) {
+        pdf.setFillColor(220, 220, 220);
+        pdf.rect(x, y, panelW, imgH, 'F');
       }
 
-      panelIndex++;
+      // Bordure image
+      pdf.setDrawColor(60, 60, 60);
+      pdf.setLineWidth(0.3);
+      pdf.rect(x, y, panelW, imgH);
+
+      // Zone dialogue blanche sous l'image
+      const dlgY = y + imgH;
+      pdf.setFillColor(255, 255, 255);
+      pdf.rect(x, dlgY, panelW, dlgH, 'F');
+      pdf.setDrawColor(60, 60, 60);
+      pdf.setLineWidth(0.3);
+      pdf.rect(x, dlgY, panelW, dlgH);
+
+      // Texte dialogue
+      if (panel.dialogue && panel.dialogue.trim()) {
+        pdf.setTextColor(20, 20, 20);
+        pdf.setFontSize(7);
+        pdf.setFont('helvetica', 'italic');
+        const text = panel.dialogue.length > 120
+          ? panel.dialogue.substring(0, 120) + '...'
+          : panel.dialogue;
+        const lines = pdf.splitTextToSize(`"${text}"`, panelW - 4);
+        pdf.text(lines.slice(0, 2), x + 2, dlgY + 5);
+      } else {
+        pdf.setTextColor(150, 150, 150);
+        pdf.setFontSize(7);
+        pdf.setFont('helvetica', 'normal');
+        pdf.text(`Panel ${panel.panelNumber}`, x + 2, dlgY + 9);
+      }
+
+      col++;
+      if (col >= cols) { col = 0; row++; }
+      panelsOnPage++;
     });
 
-    pdf.save('comic.pdf');
+    pdf.save('scriptgenius-bd.pdf');
     toast.success('BD exportée en PDF !');
   };
 
