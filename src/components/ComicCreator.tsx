@@ -150,7 +150,6 @@ export const ComicCreator = () => {
     }
   };
 
-  // ✅ REMPLACE uniquement la fonction handleExportPDF dans ComicCreator.tsx
   const handleExportPDF = () => {
     if (panels.length === 0 || !panels.some(p => p.imageUrl)) {
       toast.error('Aucune image à exporter');
@@ -162,8 +161,8 @@ export const ComicCreator = () => {
     const pageHeight = pdf.internal.pageSize.getHeight();
     const margin = 8;
     const cols = 2;
-    const imgH = 80;
-    const dlgH = 16;
+    const imgH = 75;
+    const dlgH = 14;
     const panelH = imgH + dlgH;
     const panelW = (pageWidth - margin * (cols + 1)) / cols;
     const maxRows = Math.floor((pageHeight - margin) / (panelH + margin));
@@ -180,26 +179,27 @@ export const ComicCreator = () => {
         pdf.addPage();
         col = 0;
         row = 0;
+        panelsOnPage = 0;
       }
 
       const x = margin + col * (panelW + margin);
       const y = margin + row * (panelH + margin);
 
-      // Image
+      // Image du panel
       try {
-        const format = panel.imageUrl.includes('image/png') ? 'PNG' : 'JPEG';
-        pdf.addImage(panel.imageUrl, format, x, y, panelW, imgH);
+        const fmt = panel.imageUrl.includes('image/png') ? 'PNG' : 'JPEG';
+        pdf.addImage(panel.imageUrl, fmt, x, y, panelW, imgH);
       } catch (e) {
         pdf.setFillColor(220, 220, 220);
         pdf.rect(x, y, panelW, imgH, 'F');
       }
 
-      // Bordure image
+      // Bordure autour de l'image
       pdf.setDrawColor(60, 60, 60);
       pdf.setLineWidth(0.3);
       pdf.rect(x, y, panelW, imgH);
 
-      // Zone dialogue blanche sous l'image
+      // Zone dialogue blanche SOUS l'image (pas dessus)
       const dlgY = y + imgH;
       pdf.setFillColor(255, 255, 255);
       pdf.rect(x, dlgY, panelW, dlgH, 'F');
@@ -207,7 +207,7 @@ export const ComicCreator = () => {
       pdf.setLineWidth(0.3);
       pdf.rect(x, dlgY, panelW, dlgH);
 
-      // Texte dialogue
+      // Texte du dialogue dans la zone blanche
       if (panel.dialogue && panel.dialogue.trim()) {
         pdf.setTextColor(20, 20, 20);
         pdf.setFontSize(7);
@@ -224,6 +224,7 @@ export const ComicCreator = () => {
         pdf.text(`Panel ${panel.panelNumber}`, x + 2, dlgY + 9);
       }
 
+      // Avancer position grille
       col++;
       if (col >= cols) { col = 0; row++; }
       panelsOnPage++;
