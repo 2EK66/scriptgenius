@@ -5,12 +5,15 @@ import { toast } from 'sonner';
 
 export interface ComicPanel {
   panelNumber: number;
+  type?: string;
   visualDescription: string;
   dialogue: string;
+  speaker?: string;
   characters: string[];
   action: string;
   cameraAngle: string;
   mood: string;
+  transitionToNext?: string;
   imageUrl?: string;
   isGenerating?: boolean;
 }
