@@ -30,18 +30,30 @@ export const analyzeScriptForComic = async (
   panelsPerPage: number = 6
 ): Promise<ComicAnalysisResult> => {
   try {
-    const { data, error } = await supabase.functions.invoke('comic-script-analyzer', {
-      body: {
-        scriptContent,
-        style,
-        panelsPerPage
-      }
+    const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL || 'https://grabfyemmvlskhsxbuec.supabase.co';
+    const SUPABASE_ANON_KEY = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY || '';
+
+    const { data: { session } } = await supabase.auth.getSession();
+    const token = session?.access_token || SUPABASE_ANON_KEY;
+
+    const response = await fetch(`${SUPABASE_URL}/functions/v1/comic-script-analyzer`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'apikey': SUPABASE_ANON_KEY,
+        'Authorization': `Bearer ${token}`,
+      },
+      body: JSON.stringify({ scriptContent, style, panelsPerPage }),
     });
 
-    if (error) throw error;
+    if (!response.ok) {
+      const errText = await response.text();
+      throw new Error(`Erreur serveur ${response.status}: ${errText.substring(0, 100)}`);
+    }
+
+    const data = await response.json();
     if (!data || !data.panels) throw new Error('Réponse invalide du serveur');
 
-    // Normalisation defensive des panels
     data.panels = (data.panels || []).map((p: any, i: number) => ({
       panelNumber: p.panelNumber ?? i + 1,
       type: p.type || 'action',
