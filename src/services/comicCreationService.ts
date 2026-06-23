@@ -41,6 +41,20 @@ export const analyzeScriptForComic = async (
     if (error) throw error;
     if (!data || !data.panels) throw new Error('Réponse invalide du serveur');
 
+    // Normalisation defensive des panels
+    data.panels = (data.panels || []).map((p: any, i: number) => ({
+      panelNumber: p.panelNumber ?? i + 1,
+      type: p.type || 'action',
+      visualDescription: p.visualDescription || p.description || `Scene ${i + 1}`,
+      dialogue: p.dialogue || '',
+      speaker: p.speaker || '',
+      characters: Array.isArray(p.characters) ? p.characters : [],
+      action: p.action || '',
+      cameraAngle: p.cameraAngle || 'plan moyen',
+      mood: p.mood || 'neutre',
+      transitionToNext: p.transitionToNext || '',
+    }));
+
     return data;
   } catch (error) {
     console.error('Script analysis error:', error);
