@@ -75,7 +75,7 @@ export const analyzeScriptForComic = async (
 };
 
 // Dessine une bulle de dialogue BD sur une image base64
-export const addSpeechBubbleToImage = (imageUrl: string, dialogue: string): Promise<string> => {
+export const addSpeechBubbleToImage = (imageUrl: string, dialogue: string, speaker: string = '', position: 'left' | 'right' = 'right'): Promise<string> => {
   return new Promise((resolve) => {
     if (!dialogue || !dialogue.trim()) {
       resolve(imageUrl);
@@ -117,11 +117,13 @@ export const addSpeechBubbleToImage = (imageUrl: string, dialogue: string): Prom
       const shownLines = lines.slice(0, maxLines);
       if (lines.length > maxLines) shownLines[maxLines - 1] += '…';
 
+      const hasSpeaker = speaker && speaker.trim();
       const textWidth = Math.max(...shownLines.map(l => ctx.measureText(l).width));
-      const bubbleW = textWidth + padding * 2;
-      const bubbleH = shownLines.length * lineHeight + padding * 2;
+      const speakerWidth = hasSpeaker ? ctx.measureText(speaker).width : 0;
+      const bubbleW = Math.max(textWidth, speakerWidth) + padding * 2;
+      const bubbleH = shownLines.length * lineHeight + padding * 2 + (hasSpeaker ? lineHeight + 4 : 0);
 
-      const bubbleX = canvas.width - bubbleW - 20;
+      const bubbleX = position === 'left' ? 16 : canvas.width - bubbleW - 16;
       const bubbleY = 20;
       const r = 16;
 
@@ -157,8 +159,15 @@ export const addSpeechBubbleToImage = (imageUrl: string, dialogue: string): Prom
       ctx.fillStyle = '#111111';
       ctx.font = `bold ${fontSize}px Arial, sans-serif`;
       ctx.textBaseline = 'top';
+      let textOffsetY = 0;
+      if (hasSpeaker) {
+        ctx.fillStyle = '#2563EB';
+        ctx.fillText(speaker, bubbleX + padding, bubbleY + padding);
+        ctx.fillStyle = '#111111';
+        textOffsetY = lineHeight + 4;
+      }
       shownLines.forEach((line, i) => {
-        ctx.fillText(line, bubbleX + padding, bubbleY + padding + i * lineHeight);
+        ctx.fillText(line, bubbleX + padding, bubbleY + padding + textOffsetY + i * lineHeight);
       });
 
       resolve(canvas.toDataURL('image/png'));
@@ -185,12 +194,12 @@ export const generatePanelImage = async (
   };
 
   const stylePrefix = stylePrompts[style] || stylePrompts.manga;
-  const enhancedPrompt = `${stylePrefix}. ${panel.visualDescription}. ${panel.cameraAngle}. ${panel.mood} atmosphere. High quality, professional comic art.`;
+  const prompt = `${panel.visualDescription}. ${panel.action}. ${stylePrefix}, ${panel.cameraAngle}, ${panel.mood} mood, high quality comic panel, no text, no speech bubbles`;
 
-  console.log(`[Panel ${panel.panelNumber}] Generating image with prompt:`, enhancedPrompt.substring(0, 80));
+  console.log(`[Panel ${panel.panelNumber}] Generating image with prompt:`, prompt.substring(0, 80));
 
   const result = await runware.generateImage({
-    positivePrompt: enhancedPrompt,
+    positivePrompt: prompt,
     width: 768,
     height: 512,
   });
@@ -253,8 +262,9 @@ export const generateAllPanelImages = async (
       // Ajouter la bulle de dialogue sur l'image
       let imageWithBubble = finalUrl;
       if (panel.dialogue && panel.dialogue.trim() && finalUrl) {
+        const bubblePosition = panel.panelNumber % 2 === 0 ? 'left' : 'right';
         try {
-          imageWithBubble = await addSpeechBubbleToImage(finalUrl, panel.dialogue);
+          imageWithBubble = await addSpeechBubbleToImage(finalUrl, panel.dialogue, panel.speaker || '', bubblePosition);
         } catch (e) {
           console.warn(`[Panel ${panel.panelNumber}] Bulle non ajoutée:`, e);
           imageWithBubble = finalUrl;
