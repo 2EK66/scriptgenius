@@ -1,6 +1,8 @@
 // ✅ VERSION CORRIGÉE — utilise fetch direct au lieu de supabase.functions.invoke
 // qui échouait silencieusement avant même d'envoyer la requête réseau.
 
+import { supabase } from '@/integrations/supabase/client';
+
 const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL || 'https://grabfyemmvlskhsxbuec.supabase.co';
 const SUPABASE_ANON_KEY = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY || '';
 
@@ -38,6 +40,14 @@ export class RunwareService {
       console.log('[RunwareService] URL:', `${SUPABASE_URL}/functions/v1/generate-comic-image`);
       console.log('[RunwareService] Prompt:', params.positivePrompt?.substring(0, 60));
 
+      // ⚠️ L'edge function exige un user connecté (getUser sur le Bearer).
+      // Il faut donc envoyer le JWT de la session, pas l'anon key.
+      const { data: { session } } = await supabase.auth.getSession();
+      const token = session?.access_token;
+      if (!token) {
+        return { success: false, error: 'Vous devez être connecté pour générer des images.' };
+      }
+
       // Timeout de 90 secondes (HuggingFace peut être lent)
       const controller = new AbortController();
       const timeout = setTimeout(() => controller.abort(), 90000);
@@ -47,7 +57,7 @@ export class RunwareService {
         headers: {
           'Content-Type': 'application/json',
           'apikey': SUPABASE_ANON_KEY,
-          'Authorization': `Bearer ${SUPABASE_ANON_KEY}`,
+          'Authorization': `Bearer ${token}`,
         },
         body: JSON.stringify({
           positivePrompt: params.positivePrompt,
