@@ -69,6 +69,9 @@ STYLE VISUEL: ${styleGuides[style as keyof typeof styleGuides] || styleGuides.ma
 
 CONTRAINTES:
 - Maximum ${panelsPerPage} panels par page
+- COUVRIR L'INTÉGRALITÉ DU SCÉNARIO — ne rien omettre, du début à la fin
+- Pour un long script, générer autant de panels/pages que nécessaire (30, 50, 100+ panels si besoin)
+- Chaque scène, chaque dialogue important doit avoir son panel
 - Chaque panel doit avoir une composition visuelle claire
 - Équilibrer dialogues et action visuelle
 - Maintenir la continuité narrative
@@ -115,7 +118,11 @@ Réponds UNIQUEMENT avec le JSON, sans texte avant ou après.`
             role: 'user',
             content: prompt
           }
-        ]
+        ],
+        // ✅ Sans ça, Gemini tronque le JSON pour les longs scripts (>2000 mots)
+        // et l'analyse ne couvre qu'un début de scénario.
+        max_tokens: 16384,
+        temperature: 0.7,
       }),
     })
 
