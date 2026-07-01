@@ -115,7 +115,11 @@ Réponds UNIQUEMENT avec le JSON, sans texte avant ou après.`
             role: 'user',
             content: prompt
           }
-        ]
+        ],
+        // ✅ Sans ça, Gemini tronque le JSON pour les longs scripts (>2000 mots)
+        // et l'analyse ne couvre qu'un début de scénario.
+        max_tokens: 16384,
+        temperature: 0.7,
       }),
     })
 

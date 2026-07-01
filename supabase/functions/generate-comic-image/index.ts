@@ -46,9 +46,12 @@ Deno.serve(async (req) => {
 
     const params: GenerateImageRequest = await req.json();
 
-    const comicPrompt = `comic book style, panel, graphic novel illustration, digital artwork, ${params.positivePrompt}`;
+    // ✅ Ne PAS wrapper le prompt : le client construit déjà un prompt complet
+    // (description visuelle EN PREMIER + style + angle + mood). Wrapper ici
+    // enterrait la description au milieu et cassait la fidélité au prompt.
+    const comicPrompt = params.positivePrompt;
 
-    console.log('Generating comic image with Lovable AI Gateway');
+    console.log('Generating image with gpt-image-2, prompt:', comicPrompt.substring(0, 100));
 
     const aiRes = await fetch('https://ai.gateway.lovable.dev/v1/images/generations', {
       method: 'POST',
@@ -57,9 +60,12 @@ Deno.serve(async (req) => {
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({
-        model: 'google/gemini-2.5-flash-image',
-        messages: [{ role: 'user', content: comicPrompt }],
-        modalities: ['image', 'text'],
+        // gpt-image-2 respecte le prompt beaucoup mieux que gemini-flash-image
+        model: 'openai/gpt-image-2',
+        prompt: comicPrompt,
+        size: '1024x1024',
+        quality: 'low',
+        n: 1,
       }),
     });
 
