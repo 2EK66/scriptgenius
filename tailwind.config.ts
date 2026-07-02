@@ -19,6 +19,11 @@ export default {
 			}
 		},
 		extend: {
+			fontFamily: {
+				serif: ['"Instrument Serif"', 'Times New Roman', 'serif'],
+				sans: ['"Work Sans"', 'system-ui', 'sans-serif'],
+				display: ['"Instrument Serif"', 'serif'],
+			},
 			colors: {
 				border: 'hsl(var(--border))',
 				input: 'hsl(var(--input))',
@@ -70,6 +75,15 @@ export default {
 					accent: 'hsl(142 76% 36%)',
 					dark: 'hsl(217 32% 17%)',
 					light: 'hsl(210 20% 98%)'
+				},
+				gold: {
+					DEFAULT: '#c9a84c',
+					light: '#f0d78c',
+					dark: '#8a6d2d',
+				},
+				ink: {
+					DEFAULT: '#0d0d0d',
+					soft: '#1a1a1a',
 				}
 			},
 			borderRadius: {
@@ -121,7 +135,9 @@ export default {
 			},
 			backgroundImage: {
 				'gradient-script': 'linear-gradient(135deg, hsl(235 56% 67%) 0%, hsl(217 32% 25%) 100%)',
-				'gradient-premium': 'linear-gradient(135deg, hsl(142 76% 36%) 0%, hsl(142 76% 32%) 100%)'
+				'gradient-premium': 'linear-gradient(135deg, #c9a84c 0%, #f0d78c 100%)',
+				'gradient-gold': 'linear-gradient(135deg, #c9a84c 0%, #f0d78c 100%)',
+				'gradient-ink': 'linear-gradient(180deg, #1a1a1a 0%, #0d0d0d 100%)'
 			}
 		}
 	},
