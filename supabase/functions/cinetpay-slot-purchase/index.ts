@@ -79,8 +79,8 @@ serve(async (req) => {
         amount: price,
         currency: 'XOF',
         description: `Achat d'une place premium ${slotType === 'script' ? 'Script' : 'BD'} (2 mois)`,
-        return_url: `https://jmnmlllwwowvlbpfbmqq.supabase.co/functions/v1/cinetpay-webhook`,
-        notify_url: `https://jmnmlllwwowvlbpfbmqq.supabase.co/functions/v1/cinetpay-webhook`,
+        return_url: `${Deno.env.get('SUPABASE_URL')}/functions/v1/cinetpay-webhook`,
+        notify_url: `${Deno.env.get('SUPABASE_URL')}/functions/v1/cinetpay-webhook`,
         metadata: JSON.stringify({
           user_id: user.id,
           type: 'premium_slot',
