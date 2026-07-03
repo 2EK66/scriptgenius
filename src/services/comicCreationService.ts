@@ -30,8 +30,12 @@ export const analyzeScriptForComic = async (
   panelsPerPage: number = 6
 ): Promise<ComicAnalysisResult> => {
   try {
-    const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL || 'https://grabfyemmvlskhsxbuec.supabase.co';
-    const SUPABASE_ANON_KEY = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY || '';
+    const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL;
+    const SUPABASE_ANON_KEY = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY;
+
+    if (!SUPABASE_URL || !SUPABASE_ANON_KEY) {
+      throw new Error('Configuration backend manquante. Vérifie les variables VITE_SUPABASE_URL et VITE_SUPABASE_PUBLISHABLE_KEY.');
+    }
 
     const { data: { session } } = await supabase.auth.getSession();
     const token = session?.access_token || SUPABASE_ANON_KEY;
