@@ -34,8 +34,16 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       return;
     }
 
-    // Get initial session
-    supabase.auth.getSession().then(({ data: { session } }) => {
+    // Get initial session — si le refresh_token est corrompu (ancien projet),
+    // on nettoie le localStorage pour repartir sur une session propre.
+    supabase.auth.getSession().then(({ data: { session }, error }) => {
+      if (error) {
+        console.warn('[Auth] Session invalide, nettoyage:', error.message);
+        supabase.auth.signOut().catch(() => {});
+        Object.keys(localStorage)
+          .filter((k) => k.startsWith('sb-') || k.includes('supabase'))
+          .forEach((k) => localStorage.removeItem(k));
+      }
       setSession(session);
       setUser(session?.user ?? null);
       setLoading(false);
