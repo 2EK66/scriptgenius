@@ -23,19 +23,20 @@ export const usePublicScripts = () => {
 
       if (seriesRes.error) throw seriesRes.error;
 
-      const mapRow = (s: any, genre: string, contentField = 'description') => ({
+      const mapRow = (s: any, genre: string, contentField = 'description', source: 'series'|'comics'|'scripts' = 'series') => ({
         id: s.id, title: s.title, content: s[contentField] || '', genre: s.genre || genre,
         age_range: s.age_range || 'all', theme: s.theme || s.art_style || s.genre || '',
         view_count: s.view_count || 0, likes_count: s.likes_count || 0,
         created_at: s.created_at, updated_at: s.updated_at, user_id: s.user_id,
         author_name: 'Créateur', author_avatar: null, is_public: true,
         allow_social_sharing: true, word_count: s.word_count || 0, custom_idea: null, status: 'published',
+        _source: source,
       });
 
       const all = [
-        ...(comicsRes.data || []).map((c: any) => mapRow(c, 'BD', 'description')),
-        ...(scriptsRes.data || []).map((s: any) => mapRow(s, 'Scénario', 'content')),
-        ...(seriesRes.data || []).map((s: any) => mapRow(s, 'Série', 'description')),
+        ...(comicsRes.data || []).map((c: any) => mapRow(c, 'BD', 'description', 'comics')),
+        ...(scriptsRes.data || []).map((s: any) => mapRow(s, 'Scénario', 'content', 'scripts')),
+        ...(seriesRes.data || []).map((s: any) => mapRow(s, 'Série', 'description', 'series')),
       ].sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
 
       setScripts(all as any);
@@ -49,20 +50,18 @@ export const usePublicScripts = () => {
 
   const incrementViewCount = async (scriptId: string) => {
     try {
-      // Get current view count first
-      const { data: currentSeries } = await supabase
-        .from('series')
+      const item = scripts.find(s => s.id === scriptId) as any;
+      const table = (item?._source as 'series'|'comics'|'scripts') || 'series';
+      const { data: current } = await (supabase as any)
+        .from(table)
         .select('view_count')
         .eq('id', scriptId)
-        .single();
-        
-      const newViewCount = (currentSeries?.view_count || 0) + 1;
-      
-      const { error } = await supabase
-        .from('series')
+        .maybeSingle();
+      const newViewCount = (current?.view_count || 0) + 1;
+      const { error } = await (supabase as any)
+        .from(table)
         .update({ view_count: newViewCount })
         .eq('id', scriptId);
-      
       if (error) throw error;
       
       // Mettre à jour localement le compteur de vues
@@ -78,24 +77,25 @@ export const usePublicScripts = () => {
 
   const toggleLike = async (scriptId: string) => {
     try {
+      const item = scripts.find(s => s.id === scriptId) as any;
+      const table = (item?._source as 'series'|'comics'|'scripts') || 'series';
+      const userId = (await supabase.auth.getUser()).data.user?.id;
       // Check if user already liked this series
       const { data: existingLike } = await supabase
         .from('script_likes')
         .select('id')
-        .eq('user_id', (await supabase.auth.getUser()).data.user?.id)
+        .eq('user_id', userId)
         .eq('script_id', scriptId)
-        .single();
+        .maybeSingle();
 
       let likeAdded = false;
       
-      // Get current likes count
-      const { data: currentSeries } = await supabase
-        .from('series')
+      const { data: current } = await (supabase as any)
+        .from(table)
         .select('likes_count')
         .eq('id', scriptId)
-        .single();
-        
-      const currentLikesCount = currentSeries?.likes_count || 0;
+        .maybeSingle();
+      const currentLikesCount = current?.likes_count || 0;
       
       if (existingLike) {
         // Remove like
@@ -104,8 +104,8 @@ export const usePublicScripts = () => {
           .delete()
           .eq('id', existingLike.id);
           
-        await supabase
-          .from('series')
+        await (supabase as any)
+          .from(table)
           .update({ likes_count: Math.max(0, currentLikesCount - 1) })
           .eq('id', scriptId);
           
@@ -115,12 +115,12 @@ export const usePublicScripts = () => {
         await supabase
           .from('script_likes')
           .insert({ 
-            user_id: (await supabase.auth.getUser()).data.user?.id,
+            user_id: userId,
             script_id: scriptId 
           });
           
-        await supabase
-          .from('series')
+        await (supabase as any)
+          .from(table)
           .update({ likes_count: currentLikesCount + 1 })
           .eq('id', scriptId);
           
