@@ -573,6 +573,14 @@ export type Database = {
       }
     }
     Functions: {
+      increment_public_content_view: {
+        Args: { p_content_id: string; p_source: string }
+        Returns: number
+      }
+      toggle_public_content_like: {
+        Args: { p_content_id: string; p_source: string }
+        Returns: Json
+      }
       use_premium_slot: {
         Args: { p_slot_id: string; p_used_for_id: string }
         Returns: undefined
