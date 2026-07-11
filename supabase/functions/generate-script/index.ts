@@ -6,6 +6,25 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 }
 
+// Fonction utilitaire d'appel avec Exponential Backoff (jusqu'à 5 essais)
+async function fetchWithRetry(url: string, options: RequestInit, retries = 5, delay = 1000): Promise<Response> {
+  try {
+    const response = await fetch(url, options);
+    // Si erreur de quota (429) ou erreur serveur (>=500), on retente
+    if (!response.ok && (response.status === 429 || response.status >= 500) && retries > 0) {
+      await new Promise((resolve) => setTimeout(resolve, delay));
+      return fetchWithRetry(url, options, retries - 1, delay * 2);
+    }
+    return response;
+  } catch (error) {
+    if (retries > 0) {
+      await new Promise((resolve) => setTimeout(resolve, delay));
+      return fetchWithRetry(url, options, retries - 1, delay * 2);
+    }
+    throw error;
+  }
+}
+
 serve(async (req) => {
   if (req.method === 'OPTIONS') {
     return new Response('ok', { headers: corsHeaders })
@@ -15,7 +34,7 @@ serve(async (req) => {
     const authHeader = req.headers.get('Authorization') || ''
     const token = authHeader.replace('Bearer ', '').trim()
 
-    // Client utilisateur — uniquement pour vérifier l'auth
+    // Client utilisateur — uniquement pour vérifier l'auth de l'utilisateur connecté
     const supabaseClient = createClient(
       Deno.env.get('SUPABASE_URL') ?? '',
       Deno.env.get('SUPABASE_ANON_KEY') ?? '',
@@ -25,7 +44,7 @@ serve(async (req) => {
       }
     )
 
-    // Client admin — pour toutes les opérations DB sans blocage RLS
+    // Client admin — pour contourner les politiques RLS restrictives de l'écriture de profils/compteurs
     const supabaseAdmin = createClient(
       Deno.env.get('SUPABASE_URL') ?? '',
       Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? '',
@@ -44,7 +63,7 @@ serve(async (req) => {
 
     const { genre, ageRange, theme, customIdea, characters, setting, length } = await req.json()
 
-    // Lecture profil via admin
+    // Lecture ou création du profil utilisateur via le client admin
     let { data: profile, error: profileError } = await supabaseAdmin
       .from('profiles').select('*').eq('id', user.id).single()
 
@@ -69,19 +88,25 @@ serve(async (req) => {
       profile = newProfile
     }
 
+    // Gestion de la limite journalière (3 par jour pour l'offre gratuite)
     const today = new Date().toISOString().slice(0, 10)
     const lastDate = (profile.last_generation_date || '').slice(0, 10)
     const scriptsToday = lastDate === today ? (profile.scripts_generated_today || 0) : 0
 
     if (profile.subscription_type === 'free' && scriptsToday >= 3) {
       return new Response(
-        JSON.stringify({ error: 'Daily limit reached' }),
+        JSON.stringify({ error: 'Limite quotidienne atteinte (3 scénarios max par jour pour les comptes gratuits)' }),
         { status: 429, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       )
     }
 
-    const hfApiKey = Deno.env.get('HUGGINGFACE_API_KEY')
     const geminiApiKey = Deno.env.get('GEMINI_API_KEY')
+    if (!geminiApiKey) {
+      return new Response(
+        JSON.stringify({ error: 'GEMINI_API_KEY not configured' }),
+        { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      )
+    }
 
     const characterDescriptions = characters && characters.length > 0
       ? characters.map((char: any) => `- ${char.name} (${char.age} ans) - ${char.role}: ${char.description || 'À développer'}`).join('\n')
@@ -109,109 +134,55 @@ FADE IN:
 [Contenu de l'histoire découpée en scènes numérotées]
 FADE OUT.`
 
+    const systemPrompt = "Tu es ScriptGenius, un assistant IA spécialisé dans la création de scénarios professionnels de BD. Réponds uniquement en français."
     let generatedContent = ''
 
-    // ---- TENTATIVE 1 : Hugging Face ----
-    if (hfApiKey) {
-      try {
-        const controller = new AbortController()
-        const timeout = setTimeout(() => controller.abort(), 25000)
+    console.log(`Generating script with gemini-2.5-flash for user: ${user.id}`)
 
-        const hfResp = await fetch(
-          'https://api-inference.huggingface.co/models/HuggingFaceH4/zephyr-7b-beta',
-          {
-            method: 'POST',
-            headers: {
-              'Authorization': `Bearer ${hfApiKey}`,
-              'Content-Type': 'application/json',
-            },
-            body: JSON.stringify({
-              inputs: `<|system|>Tu es ScriptGenius, expert en scénarios de BD. Réponds uniquement en français.</s><|user|>${basePrompt}</s><|assistant|>`,
-              parameters: {
-                max_new_tokens: 1500,
-                temperature: 0.7,
-                top_p: 0.9,
-                do_sample: true,
-                return_full_text: false,
-              }
-            }),
-            signal: controller.signal,
-          }
-        )
-        clearTimeout(timeout)
+    // Appel direct et robuste au modèle Gemini 2.5 Flash
+    const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${geminiApiKey}`
 
-        if (hfResp.ok) {
-          const hfData = await hfResp.json()
-          const text = Array.isArray(hfData)
-            ? hfData[0]?.generated_text || ''
-            : hfData?.generated_text || ''
-          if (text && text.length > 100) {
-            generatedContent = text
-            console.log('✅ Généré via Hugging Face')
+    try {
+      const geminiResp = await fetchWithRetry(url, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          systemInstruction: { parts: [{ text: systemPrompt }] },
+          contents: [{ role: 'user', parts: [{ text: basePrompt }] }],
+          generationConfig: {
+            temperature: 0.7,
+            maxOutputTokens: 8192 // Large marge pour les longs scénarios
           }
-        } else {
-          const err = await hfResp.text()
-          console.error('HuggingFace failed:', hfResp.status, err)
+        }),
+      })
+
+      if (geminiResp.ok) {
+        const geminiData = await geminiResp.json()
+        const text = geminiData?.candidates?.[0]?.content?.parts?.map((p: any) => p.text).join('') || ''
+        if (text && text.trim().length > 100) {
+          generatedContent = text
+          console.log('✅ Génération réussie via Gemini 2.5 Flash')
         }
-      } catch (hfError) {
-        console.error('HuggingFace exception:', hfError)
+      } else {
+        const err = await geminiResp.text()
+        console.error('Gemini API Error:', geminiResp.status, err)
       }
-    }
-
-    // ---- TENTATIVE 2 : Gemini (fallback) ----
-    if (!generatedContent && geminiApiKey) {
-      const systemPrompt = "Tu es ScriptGenius, un assistant IA spécialisé dans la création de scénarios professionnels de BD. Réponds uniquement en français."
-
-      const models = [
-        'gemini-1.5-flash',
-        'gemini-2.0-flash',
-        'gemini-1.5-pro',
-      ]
-
-      for (const model of models) {
-        try {
-          const geminiResp = await fetch(
-            `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${geminiApiKey}`,
-            {
-              method: 'POST',
-              headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify({
-                systemInstruction: { parts: [{ text: systemPrompt }] },
-                contents: [{ role: 'user', parts: [{ text: basePrompt }] }],
-              }),
-            }
-          )
-
-          if (geminiResp.ok) {
-            const geminiData = await geminiResp.json()
-            const text = geminiData?.candidates?.[0]?.content?.parts?.map((p: any) => p.text).join('') || ''
-            if (text) {
-              generatedContent = text
-              console.log(`✅ Généré via Gemini (${model})`)
-              break
-            }
-          } else {
-            const err = await geminiResp.text()
-            console.error(`Gemini ${model} failed:`, geminiResp.status, err)
-          }
-        } catch (geminiError) {
-          console.error(`Exception Gemini ${model}:`, geminiError)
-        }
-        await new Promise(r => setTimeout(r, 500))
-      }
+    } catch (geminiError) {
+      console.error('Exception during Gemini API call:', geminiError)
     }
 
     if (!generatedContent) {
       return new Response(
-        JSON.stringify({ error: 'Tous les services IA sont indisponibles. Réessayez dans quelques minutes.' }),
+        JSON.stringify({ error: 'Le service de génération de scénario est temporairement indisponible. Réessayez dans quelques instants.' }),
         { status: 502, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       )
     }
 
+    // Extraction propre du titre
     const titleMatch = generatedContent.match(/TITRE:\s*(.+)/i)
-    const title = titleMatch ? titleMatch[1].trim() : `Scénario ${genre}`
+    const title = titleMatch ? titleMatch[1].replace(/\[|\]/g, '').trim() : `Scénario ${genre}`
 
-    // Insert script via admin
+    // Sauvegarde du scénario dans la base de données via le client admin
     const { data: script, error: insertError } = await supabaseAdmin
       .from('scripts')
       .insert({
@@ -222,18 +193,19 @@ FADE OUT.`
         age_range: ageRange,
         theme,
         custom_idea: customIdea,
-        word_count: generatedContent.split(' ').length,
+        word_count: generatedContent.split(/\s+/).length,
       })
       .select().single()
 
     if (insertError) {
+      console.error('Database insert error:', insertError)
       return new Response(
-        JSON.stringify({ error: 'Failed to save script' }),
+        JSON.stringify({ error: 'Failed to save generated script' }),
         { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       )
     }
 
-    // Update compteur via admin
+    // Mise à jour des compteurs quotidiens et totaux de l'utilisateur
     const nextTodayCount = lastDate === today ? (profile.scripts_generated_today || 0) + 1 : 1
     await supabaseAdmin
       .from('profiles')
@@ -251,7 +223,7 @@ FADE OUT.`
     )
 
   } catch (error) {
-    console.error('Error in generate-script:', error)
+    console.error('Error in generate-script function:', error)
     return new Response(
       JSON.stringify({ error: 'Internal server error' }),
       { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
