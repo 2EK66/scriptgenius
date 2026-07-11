@@ -42,10 +42,11 @@ serve(async (req) => {
       )
     }
 
-    const lovableKey = Deno.env.get('LOVABLE_API_KEY')
-    if (!lovableKey) {
+    // Remplacement par la clé d'API officielle de Gemini / Google AI Studio
+    const geminiKey = Deno.env.get('GEMINI_API_KEY')
+    if (!geminiKey) {
       return new Response(
-        JSON.stringify({ error: 'AI service unavailable' }),
+        JSON.stringify({ error: 'Configuration de la clé API Gemini manquante' }),
         { status: 503, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       )
     }
@@ -101,14 +102,15 @@ IMPORTANT:
 
 Réponds UNIQUEMENT avec le JSON, sans texte avant ou après.`
 
-    const aiResp = await fetch('https://ai.gateway.lovable.dev/v1/chat/completions', {
+    // Appel direct au endpoint de compatibilité OpenAI de Google AI Studio
+    const aiResp = await fetch('https://generativelanguage.googleapis.com/v1beta/openai/chat/completions', {
       method: 'POST',
       headers: {
-        Authorization: `Bearer ${lovableKey}`,
+        Authorization: `Bearer ${geminiKey}`,
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({
-        model: 'google/gemini-2.5-flash',
+        model: 'gemini-2.5-flash',
         messages: [
           {
             role: 'system',
@@ -119,10 +121,10 @@ Réponds UNIQUEMENT avec le JSON, sans texte avant ou après.`
             content: prompt
           }
         ],
-        // ✅ Sans ça, Gemini tronque le JSON pour les longs scripts (>2000 mots)
-        // et l'analyse ne couvre qu'un début de scénario.
         max_tokens: 16384,
         temperature: 0.7,
+        // Force Gemini à structurer la réponse en JSON natif
+        response_format: { type: "json_object" }
       }),
     })
 
@@ -133,16 +135,10 @@ Réponds UNIQUEMENT avec le JSON, sans texte avant ou après.`
           headers: { ...corsHeaders, 'Content-Type': 'application/json' },
         })
       }
-      if (aiResp.status === 402) {
-        return new Response(JSON.stringify({ error: 'Crédits AI épuisés. Veuillez recharger votre espace Lovable AI.' }), {
-          status: 402,
-          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-        })
-      }
       const t = await aiResp.text()
-      console.error('AI gateway error:', aiResp.status, t)
+      console.error('Gemini API error:', aiResp.status, t)
       return new Response(
-        JSON.stringify({ error: 'Failed to analyze script' }),
+        JSON.stringify({ error: 'Failed to analyze script via Gemini' }),
         { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       )
     }
@@ -150,41 +146,8 @@ Réponds UNIQUEMENT avec le JSON, sans texte avant ou après.`
     const aiData = await aiResp.json()
     let content = aiData.choices?.[0]?.message?.content || ''
 
-    // Extract JSON from markdown code blocks if present
-    const jsonMatch = content.match(/```(?:json)?\s*(\{[\s\S]*\})\s*```/)
-    if (jsonMatch) {
-      content = jsonMatch[1]
-    }
+    // Extraction de secours si le modèle a quand même inclus des blocs de code Markdown
+    const jsonMatch = content.match(/
+http://googleusercontent.com/immersive_entry_chip/0
 
-    let parsedResult
-    try {
-      parsedResult = JSON.parse(content)
-    } catch (e) {
-      console.error('Failed to parse AI response:', content)
-      return new Response(
-        JSON.stringify({ error: 'Failed to parse AI response' }),
-        { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-      )
-    }
-
-    return new Response(
-      JSON.stringify({ 
-        success: true,
-        panels: parsedResult.panels || [],
-        totalPages: parsedResult.totalPages || 1,
-        synopsis: parsedResult.synopsis || ''
-      }),
-      { 
-        status: 200, 
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
-      }
-    )
-
-  } catch (error) {
-    console.error('Function error:', error)
-    return new Response(
-      JSON.stringify({ error: 'Internal server error' }),
-      { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-    )
-  }
-})
+*Note : N'oubliez pas d'ajouter la variable d'environnement `GEMINI_API_KEY` dans votre tableau de bord Supabase (avec votre clé obtenue sur Google AI Studio) à la place de l'ancienne clé Lovable.*
