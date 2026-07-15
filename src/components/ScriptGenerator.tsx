@@ -7,7 +7,7 @@ import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Separator } from "@/components/ui/separator";
-import { Wand2, Download, Volume2, BookOpen, Sparkles, Lock, FileText, Save, Share, Plus, Trash2, User } from "lucide-react";
+import { Wand2, Download, Volume2, BookOpen, Sparkles, Lock, FileText, Save, Share, Plus, Trash2, User, Feather } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 import { useProfile } from "@/hooks/useProfile";
 import { useToast } from "@/components/ui/use-toast";
@@ -15,6 +15,7 @@ import { generateScript, Character } from "@/services/scriptService";
 import { exportScriptToPDF } from "@/services/pdfExportService";
 import AuthModal from "./AuthModal";
 import PublishDialog from "./PublishDialog";
+import HumanizeScriptDialog from "./HumanizeScriptDialog";
 
 const ScriptGenerator = () => {
   const { user } = useAuth();
@@ -35,6 +36,7 @@ const ScriptGenerator = () => {
   const [currentScript, setCurrentScript] = useState<any>(null);
   const [isExporting, setIsExporting] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
+  const [isHumanized, setIsHumanized] = useState(false);
 
   const handleGenerate = async () => {
     if (!user) {
@@ -73,6 +75,7 @@ const ScriptGenerator = () => {
       if (result.success && result.script) {
         setGeneratedScript(result.script.content);
         setCurrentScript(result.script);
+        setIsHumanized(false);
         
         toast({
           title: "Scénario généré !",
@@ -462,6 +465,20 @@ const ScriptGenerator = () => {
                 </span>
                 {generatedScript && (
                   <div className="flex space-x-2">
+                    <HumanizeScriptDialog
+                      content={generatedScript}
+                      onHumanized={(newContent) => {
+                        setGeneratedScript(newContent);
+                        setCurrentScript((prev: any) =>
+                          prev ? { ...prev, content: newContent } : prev,
+                        );
+                        setIsHumanized(true);
+                      }}
+                    >
+                      <Button size="sm" variant="outline" title="Rendre plus humain">
+                        <Feather className="h-4 w-4" />
+                      </Button>
+                    </HumanizeScriptDialog>
                     <Button 
                       size="sm" 
                       variant="outline"
@@ -520,9 +537,15 @@ const ScriptGenerator = () => {
                     <Badge className="bg-script-accent/10 text-script-accent">
                       Thème: {theme}
                     </Badge>
-                    <Badge className="bg-green-100 text-green-800">
-                      ✨ Généré par IA
-                    </Badge>
+                    {isHumanized ? (
+                      <Badge className="bg-amber-100 text-amber-800">
+                        <Feather className="h-3 w-3 mr-1" /> Version auteur
+                      </Badge>
+                    ) : (
+                      <Badge className="bg-green-100 text-green-800">
+                        ✨ Brouillon assisté
+                      </Badge>
+                    )}
                   </div>
                 </div>
               ) : (
