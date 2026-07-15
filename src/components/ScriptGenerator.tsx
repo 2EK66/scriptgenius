@@ -75,6 +75,7 @@ const ScriptGenerator = () => {
       if (result.success && result.script) {
         setGeneratedScript(result.script.content);
         setCurrentScript(result.script);
+        setIsHumanized(false);
         
         toast({
           title: "Scénario généré !",
