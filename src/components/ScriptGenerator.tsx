@@ -7,7 +7,7 @@ import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Separator } from "@/components/ui/separator";
-import { Wand2, Download, Volume2, BookOpen, Sparkles, Lock, FileText, Save, Share, Plus, Trash2, User } from "lucide-react";
+import { Wand2, Download, Volume2, BookOpen, Sparkles, Lock, FileText, Save, Share, Plus, Trash2, User, Feather } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 import { useProfile } from "@/hooks/useProfile";
 import { useToast } from "@/components/ui/use-toast";
@@ -15,6 +15,7 @@ import { generateScript, Character } from "@/services/scriptService";
 import { exportScriptToPDF } from "@/services/pdfExportService";
 import AuthModal from "./AuthModal";
 import PublishDialog from "./PublishDialog";
+import HumanizeScriptDialog from "./HumanizeScriptDialog";
 
 const ScriptGenerator = () => {
   const { user } = useAuth();
@@ -35,6 +36,7 @@ const ScriptGenerator = () => {
   const [currentScript, setCurrentScript] = useState<any>(null);
   const [isExporting, setIsExporting] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
+  const [isHumanized, setIsHumanized] = useState(false);
 
   const handleGenerate = async () => {
     if (!user) {
