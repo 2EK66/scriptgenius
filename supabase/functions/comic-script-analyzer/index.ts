@@ -42,7 +42,7 @@ serve(async (req) => {
       )
     }
 
-    // Remplacement par la clé d'API officielle de Gemini / Google AI Studio
+    // Clé d'API officielle de Gemini / Google AI Studio (remplace l'ancienne passerelle Lovable)
     const geminiKey = Deno.env.get('GEMINI_API_KEY')
     if (!geminiKey) {
       return new Response(
@@ -121,9 +121,10 @@ Réponds UNIQUEMENT avec le JSON, sans texte avant ou après.`
             content: prompt
           }
         ],
+        // Sans ça, Gemini tronque le JSON pour les longs scripts (>2000 mots)
+        // et l'analyse ne couvre qu'un début de scénario.
         max_tokens: 16384,
         temperature: 0.7,
-        // Force Gemini à structurer la réponse en JSON natif
         response_format: { type: "json_object" }
       }),
     })
@@ -147,7 +148,40 @@ Réponds UNIQUEMENT avec le JSON, sans texte avant ou après.`
     let content = aiData.choices?.[0]?.message?.content || ''
 
     // Extraction de secours si le modèle a quand même inclus des blocs de code Markdown
-    const jsonMatch = content.match(/
-http://googleusercontent.com/immersive_entry_chip/0
+    const jsonMatch = content.match(/```(?:json)?\s*(\{[\s\S]*\})\s*```/)
+    if (jsonMatch) {
+      content = jsonMatch[1]
+    }
 
-*Note : N'oubliez pas d'ajouter la variable d'environnement `GEMINI_API_KEY` dans votre tableau de bord Supabase (avec votre clé obtenue sur Google AI Studio) à la place de l'ancienne clé Lovable.*
+    let parsedResult
+    try {
+      parsedResult = JSON.parse(content)
+    } catch (e) {
+      console.error('Failed to parse AI response:', content)
+      return new Response(
+        JSON.stringify({ error: 'Failed to parse AI response' }),
+        { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      )
+    }
+
+    return new Response(
+      JSON.stringify({
+        success: true,
+        panels: parsedResult.panels || [],
+        totalPages: parsedResult.totalPages || 1,
+        synopsis: parsedResult.synopsis || ''
+      }),
+      {
+        status: 200,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+      }
+    )
+
+  } catch (error) {
+    console.error('Function error:', error)
+    return new Response(
+      JSON.stringify({ error: 'Internal server error' }),
+      { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+    )
+  }
+})
